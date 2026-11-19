@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="Collect & Shoot">
   <meta name="theme-color" content="#0b0e16">
   <meta name="format-detection" content="telephone=no">
-  <title>Collect and Shoot</title>
+  <title>Collect and Shoot v2</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -20,7 +20,7 @@
 
   <div id="hud" class="hidden">
     <div id="minimap-wrap"><canvas id="minimap" width="216" height="216"></canvas></div>
-    <div id="minimap-label">Arena</div>
+    <div id="minimap-label">Ruined Court</div>
 
     <div id="top-center">
       <div id="boss-wrap">
@@ -36,8 +36,10 @@
 
     <div id="menu-icons">
       <button class="icon-btn" id="btn-mute" aria-label="Mute">♪</button>
+      <button class="icon-btn" id="btn-settings-hud" aria-label="Settings">⚙</button>
       <button class="icon-btn" id="btn-pause" aria-label="Pause">❚❚</button>
     </div>
+    <div id="fps-meter" class="show">FPS --</div>
 
     <div id="toast"></div>
     <div id="power-tag"></div>
@@ -81,11 +83,12 @@
     <div class="screen show" id="home">
       <div class="panel">
         <div id="title-game">COLLECT &amp; SHOOT</div>
-        <div id="title-sub">Storm Arena</div>
+        <div id="title-sub">Storm Wilds &nbsp;·&nbsp; v2.0</div>
         <div id="home-hs">High Score &nbsp;<span id="hs-home">0</span></div>
         <div class="btn-row">
           <button class="btn primary" id="btn-play">Play</button>
           <button class="btn" id="btn-howto">How to Play</button>
+          <button class="btn" id="btn-settings-home">Settings</button>
         </div>
         <div id="install-hint"></div>
       </div>
@@ -101,7 +104,8 @@
           <li><b>BOW</b> (teer kaman): hold to draw, release to fire. A longer draw deals more damage and flies farther. Arrows arc through the air and stick where they land.</li>
           <li>Pick up <b>powers</b> for heal, shield, overdrive, or a nova blast — then tap POWER.</li>
           <li>There are no coins or gems. Score only comes from defeating enemies and bosses.</li>
-          <li>Waves get harder. Every few waves, a giant boss enters the arena.</li>
+          <li>Explore a small open wilds: the <b>Ruined Court</b>, the <b>Ember Field</b>, and the <b>Mist Pass</b>.</li>
+          <li>Waves get harder. Every few waves a <b>boss lair</b> stirs — it's marked on the minimap. Walk in to start the fight.</li>
         </ul>
         <div class="btn-row" style="margin-top:14px">
           <button class="btn primary" id="btn-howto-ok">Got it</button>
@@ -115,6 +119,7 @@
         <p style="text-align:center;margin-bottom:16px;color:#c8b894">The storm waits.</p>
         <div class="btn-row">
           <button class="btn primary" id="btn-resume">Resume</button>
+          <button class="btn" id="btn-settings-pause">Settings</button>
           <button class="btn" id="btn-quit">Quit to Home</button>
         </div>
       </div>
@@ -131,6 +136,27 @@
         <div class="btn-row">
           <button class="btn primary" id="btn-again">Fight Again</button>
           <button class="btn" id="btn-over-home">Home</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen" id="settings">
+      <div id="settings-box">
+        <h2>Settings</h2>
+        <div class="set-row">
+          <div class="set-lab">Graphics</div>
+          <div class="seg" id="quality-seg">
+            <button type="button" data-q="low">Low</button>
+            <button type="button" data-q="medium" class="on">Medium</button>
+            <button type="button" data-q="high">High</button>
+          </div>
+        </div>
+        <label class="set-check"><input type="checkbox" id="chk-auto" checked> Auto-lower quality if FPS drops</label>
+        <label class="set-check"><input type="checkbox" id="chk-fps" checked> Show FPS counter</label>
+        <p class="set-note">Uncapped frame rate. On ProMotion iPhones Safari may run 90–120 FPS. Shadows use a moving sun map; Low falls back to blob shadows.</p>
+        <div class="set-ver">Collect and Shoot &nbsp;v2.0</div>
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn primary" id="btn-settings-back">Back</button>
         </div>
       </div>
     </div>

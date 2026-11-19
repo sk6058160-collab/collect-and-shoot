@@ -2,15 +2,32 @@
 (function () {
   "use strict";
 
+  const VERSION = "2.0";
   const HS_KEY = "cas_highscore_v1";
-  const ARENA_R = 42;
+  const SET_KEY = "cas_settings_v2";
   const MAX_HP = 100;
+  const WORLD = { minX: -52, maxX: 52, minZ: -48, maxZ: 52 };
+  const ZONES = [
+    { id: "ruins", name: "Ruined Court", x: 0, z: 6, rx: 28, rz: 20 },
+    { id: "lava", name: "Ember Field", x: 0, z: -32, rx: 26, rz: 18 },
+    { id: "mist", name: "Mist Pass", x: 12, z: 36, rx: 26, rz: 18 },
+  ];
+  const LAIRS = [
+    { id: "ember", name: "EMBERHORN", x: 0, z: -36, bossIdx: 0, color: "#ff4a10", defeated: false },
+    { id: "void", name: "VOIDMAW", x: 18, z: 40, bossIdx: 1, color: "#b44aff", defeated: false },
+  ];
   function el(id) { return document.getElementById(id); }
 
-  let renderer, scene, camera, clock, sunLight, hemi, lavaLight, worldEmbers;
+  let renderer, scene, camera, clock, sunLight, hemi, lavaLight, worldEmbers, worldMist;
   let flashT = 0, mode = "home", score = 0, wave = 1, combo = 0, comboT = 0, highScore = 0, kills = 0, time = 0;
   let pendingPower = null, activePower = null, powerT = 0;
   let wavePhase = "idle", waveTimer = 0, toSpawn = 0, muted = false;
+  let quality = "high", autoQuality = true, showFps = true;
+  let fps = 0, fpsAccum = 0, fpsFrames = 0, autoGrace = 5, autoCd = 0, autoStable = 0;
+  let envMap = null, settingsFrom = "home", currentZone = "ruins";
+  let gfx = { shadows: true, particles: 1, pr: 1.5 };
+  let hemiBase = 1.12, sunBase = 1.35;
+  const worldProps = [];
 
   const enemies = [], bullets = [], arrows = [], pickups = [], particles = [], floaters = [], pillars = [];
 
@@ -50,6 +67,18 @@
       try { localStorage.setItem(HS_KEY, String(highScore)); } catch (e) {}
     }
     el("hs-home").textContent = String(highScore);
+  }
+
+  function loadSettings() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SET_KEY) || "{}");
+      if (s.quality === "low" || s.quality === "medium" || s.quality === "high") quality = s.quality;
+      if (typeof s.auto === "boolean") autoQuality = s.auto;
+      if (typeof s.fps === "boolean") showFps = s.fps;
+    } catch (e) {}
+  }
+  function saveSettings() {
+    try { localStorage.setItem(SET_KEY, JSON.stringify({ quality: quality, auto: autoQuality, fps: showFps })); } catch (e) {}
   }
 
   function noiseTex(size, c1, c2, grain) {
@@ -109,14 +138,185 @@
     return tex;
   }
 
+  function canvasTex(c, repeat) {
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.anisotropy = 4;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    if (repeat) tex.repeat.set(repeat, repeat);
+    return tex;
+  }
+
+  function wetTileMaps(size) {
+    const col = document.createElement("canvas");
+    const rou = document.createElement("canvas");
+    col.width = col.height = rou.width = rou.height = size;
+    const c = col.getContext("2d");
+    const r = rou.getContext("2d");
+    c.fillStyle = "#16181e";
+    c.fillRect(0, 0, size, size);
+    r.fillStyle = "#d0d0d0";
+    r.fillRect(0, 0, size, size);
+    const n = 8, pad = Math.floor(size * 0.025);
+    const tw = Math.floor(size / n);
+    for (let ty = 0; ty < n; ty++) {
+      for (let tx = 0; tx < n; tx++) {
+        const x = tx * tw + pad, y = ty * tw + pad;
+        const w = tw - pad * 2, h = tw - pad * 2;
+        const shade = 18 + ((tx * 13 + ty * 7) % 22);
+        const blu = 8 + ((tx + ty * 3) % 10);
+        c.fillStyle = "rgb(" + (28 + shade) + "," + (30 + shade) + "," + (36 + shade + blu) + ")";
+        c.fillRect(x, y, w, h);
+        // wet streak
+        const g = c.createLinearGradient(x, y, x + w, y + h);
+        g.addColorStop(0, "rgba(180,200,220,0.10)");
+        g.addColorStop(0.45, "rgba(255,255,255,0)");
+        g.addColorStop(1, "rgba(80,100,130,0.10)");
+        c.fillStyle = g;
+        c.fillRect(x, y, w, h);
+        // edge highlight
+        c.strokeStyle = "rgba(200,210,225,0.18)";
+        c.lineWidth = 1;
+        c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+        r.fillStyle = (tx + ty) % 2 === 0 ? "#3a3a3a" : "#4a4a4a";
+        r.fillRect(x, y, w, h);
+        // glossier patches
+        r.fillStyle = "rgba(20,20,20,0.55)";
+        r.fillRect(x + 2, y + 2, w * 0.45, h * 0.3);
+      }
+    }
+    return { map: canvasTex(col, 10), rough: canvasTex(rou, 10) };
+  }
+
+  function mossTex(size) {
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#1a2218";
+    ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < 220; i++) {
+      const x = rand(0, size), y = rand(0, size), rad = rand(4, 16);
+      ctx.fillStyle = "rgba(" + irand(30, 70) + "," + irand(60, 110) + "," + irand(28, 60) + "," + rand(0.3, 0.7) + ")";
+      ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.strokeStyle = "rgba(10,14,10,0.4)";
+    for (let k = 0; k < 12; k++) {
+      ctx.beginPath();
+      let x = rand(0, size), y = rand(0, size);
+      ctx.moveTo(x, y);
+      for (let s = 0; s < 6; s++) { x += rand(-20, 20); y += rand(-20, 20); ctx.lineTo(x, y); }
+      ctx.stroke();
+    }
+    return canvasTex(c, 6);
+  }
+
+  function weatheredTex(size) {
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#5a5c64";
+    ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < size * size * 0.08; i++) {
+      const x = irand(0, size - 1), y = irand(0, size - 1);
+      const v = irand(40, 110);
+      ctx.fillStyle = "rgb(" + v + "," + (v - 4) + "," + (v + 4) + ")";
+      ctx.fillRect(x, y, irand(1, 3), irand(1, 3));
+    }
+    ctx.strokeStyle = "rgba(20,18,16,0.5)";
+    ctx.lineWidth = 1.2;
+    for (let k = 0; k < 24; k++) {
+      ctx.beginPath();
+      let x = rand(0, size), y = rand(0, size);
+      ctx.moveTo(x, y);
+      for (let s = 0; s < 8; s++) { x += rand(-28, 28); y += rand(-18, 18); ctx.lineTo(x, y); }
+      ctx.stroke();
+    }
+    // lichen
+    for (let i = 0; i < 18; i++) {
+      ctx.fillStyle = "rgba(70,90,50," + rand(0.15, 0.35) + ")";
+      ctx.beginPath(); ctx.arc(rand(0, size), rand(0, size), rand(4, 12), 0, Math.PI * 2); ctx.fill();
+    }
+    return canvasTex(c, 3);
+  }
+
+  function stormSkyTex() {
+    const w = 512, h = 256;
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const ctx = c.getContext("2d");
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, "#0b0e16");
+    g.addColorStop(0.42, "#1a2230");
+    g.addColorStop(0.62, "#3a3a42");
+    g.addColorStop(0.78, "#6a5a4a");
+    g.addColorStop(0.9, "#2a241c");
+    g.addColorStop(1, "#12141a");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 0.35;
+    for (let i = 0; i < 18; i++) {
+      const cx = rand(0, w), cy = rand(h * 0.25, h * 0.65), rx = rand(40, 120), ry = rand(12, 28);
+      const cg = ctx.createRadialGradient(cx, cy, 4, cx, cy, rx);
+      cg.addColorStop(0, "rgba(70,74,86,0.9)");
+      cg.addColorStop(1, "rgba(20,22,30,0)");
+      ctx.fillStyle = cg;
+      ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    return tex;
+  }
+
+  function crackEmissive(size) {
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, size, size);
+    ctx.lineCap = "round";
+    for (let k = 0; k < 16; k++) {
+      ctx.strokeStyle = "rgb(" + irand(220, 255) + "," + irand(40, 90) + ",10)";
+      ctx.lineWidth = rand(1.5, 3.5);
+      ctx.beginPath();
+      let x = rand(0, size), y = rand(0, size);
+      ctx.moveTo(x, y);
+      for (let s = 0; s < 10; s++) { x += rand(-30, 30); y += rand(-30, 30); ctx.lineTo(x, y); }
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
   function initMats() {
     const rock = noiseTex(256, [62, 64, 72], [28, 26, 30], 0.8);
     rock.repeat.set(8, 8);
-    const rock2 = noiseTex(128, [80, 78, 84], [30, 28, 32], 0.6);
-    mats.ground = new THREE.MeshStandardMaterial({ map: rock, color: 0xb0b4bc, roughness: 0.96, metalness: 0.04 });
-    mats.stone = new THREE.MeshStandardMaterial({ map: rock2, color: 0x8a8c94, roughness: 0.9, metalness: 0.05 });
-    mats.mountain = new THREE.MeshStandardMaterial({ color: 0x3a3e4a, roughness: 1, metalness: 0, flatShading: true });
-    mats.lava = new THREE.MeshStandardMaterial({ map: lavaTex(128), color: 0xff6a1a, emissive: 0xff3a00, emissiveIntensity: 1.4, roughness: 0.6 });
+    const rock2 = weatheredTex(256);
+    const tiles = wetTileMaps(256);
+    const moss = mossTex(256);
+    const lavaMap = lavaTex(256);
+    lavaMap.wrapS = lavaMap.wrapT = THREE.RepeatWrapping;
+    lavaMap.repeat.set(4, 4);
+    mats.ground = new THREE.MeshStandardMaterial({ map: rock, color: 0x8a8e96, roughness: 0.92, metalness: 0.06 });
+    mats.wetStone = new THREE.MeshPhysicalMaterial({
+      map: tiles.map, roughnessMap: tiles.rough, color: 0xc4c8d2,
+      roughness: 0.28, metalness: 0.22, envMapIntensity: 1.15,
+      clearcoat: 0.4, clearcoatRoughness: 0.18,
+    });
+    mats.moss = new THREE.MeshStandardMaterial({ map: moss, color: 0x8a9a78, roughness: 0.92, metalness: 0.04 });
+    mats.lavaGround = new THREE.MeshStandardMaterial({
+      map: lavaMap, color: 0x4a2a22, roughness: 0.78, metalness: 0.08,
+      emissive: 0xff3a00, emissiveMap: lavaMap, emissiveIntensity: 0.85,
+    });
+    mats.stone = new THREE.MeshStandardMaterial({ map: rock2, color: 0xb0b4bc, roughness: 0.82, metalness: 0.08 });
+    mats.mountain = new THREE.MeshStandardMaterial({ map: rock2, color: 0x6a7080, roughness: 0.95, metalness: 0.04, flatShading: true });
+    mats.lava = new THREE.MeshStandardMaterial({ map: lavaMap, color: 0xff6a1a, emissive: 0xff3a00, emissiveIntensity: 1.6, roughness: 0.55 });
+    mats.bark = new THREE.MeshStandardMaterial({ color: 0x3a2a1c, roughness: 0.9 });
+    mats.pine = new THREE.MeshStandardMaterial({ color: 0x1c3a28, roughness: 0.85, flatShading: true });
+    mats.sky = new THREE.MeshBasicMaterial({ map: stormSkyTex(), side: THREE.BackSide, fog: false, depthWrite: false });
+    const cracks = crackEmissive(256);
     mats.heroBlue = new THREE.MeshStandardMaterial({ color: 0x3a78ff, roughness: 0.4, metalness: 0.16, emissive: 0x0a2266, emissiveIntensity: 0.45 });
     mats.heroSpike = new THREE.MeshStandardMaterial({ color: 0x1a4ad0, roughness: 0.36, metalness: 0.22, emissive: 0x071850, emissiveIntensity: 0.35 });
     mats.heroBelly = new THREE.MeshStandardMaterial({ color: 0xc5d4f0, roughness: 0.55, metalness: 0.05 });
@@ -140,8 +340,8 @@
     mats.hound = new THREE.MeshStandardMaterial({ color: 0x1a1420, roughness: 0.7, metalness: 0.1 });
     mats.houndEye = new THREE.MeshStandardMaterial({ color: 0xff2244, emissive: 0xff0022, emissiveIntensity: 1.2 });
     mats.guard = new THREE.MeshStandardMaterial({ color: 0x5a5c62, roughness: 0.85, metalness: 0.2, map: rock2 });
-    mats.bossRock = new THREE.MeshStandardMaterial({ color: 0x1c1412, roughness: 0.8, metalness: 0.15 });
-    mats.bossLava = new THREE.MeshStandardMaterial({ color: 0xff4a10, emissive: 0xff2a00, emissiveIntensity: 1.6, roughness: 0.4 });
+    mats.bossRock = new THREE.MeshStandardMaterial({ color: 0x3a2a24, roughness: 0.72, metalness: 0.18, emissive: 0xff2a00, emissiveMap: cracks, emissiveIntensity: 0.85 });
+    mats.bossLava = new THREE.MeshStandardMaterial({ color: 0xff4a10, emissive: 0xff2a00, emissiveIntensity: 1.85, roughness: 0.35 });
     mats.bossHorn = new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.45, metalness: 0.3 });
     mats.voidBody = new THREE.MeshStandardMaterial({ color: 0x1a1030, roughness: 0.45, metalness: 0.35, emissive: 0x1a0040, emissiveIntensity: 0.4 });
     mats.voidGlow = new THREE.MeshStandardMaterial({ color: 0xb44aff, emissive: 0x8800ff, emissiveIntensity: 1.5 });
@@ -163,94 +363,363 @@
   function mesh(geo, mat, sx, sy, sz) {
     const m = new THREE.Mesh(geo, mat);
     if (sx != null) m.scale.set(sx, sy == null ? sx : sy, sz == null ? sx : sz);
+    m.castShadow = true;
+    m.receiveShadow = true;
     return m;
   }
+  function noCast(m) { m.castShadow = false; return m; }
   function blobShadow(r) {
     const s = mesh(geos.plane, mats.shadow, r, r, r);
     s.rotation.x = -Math.PI / 2;
     s.position.y = 0.03;
+    s.castShadow = false;
+    s.receiveShadow = false;
+    s.userData.blob = true;
     return s;
   }
 
+  function zoneAt(x, z) {
+    let best = ZONES[0], bestD = 1e9;
+    for (let i = 0; i < ZONES.length; i++) {
+      const zn = ZONES[i];
+      const dx = (x - zn.x) / zn.rx, dz = (z - zn.z) / zn.rz;
+      const d = dx * dx + dz * dz;
+      if (d < bestD) { bestD = d; best = zn; }
+    }
+    return best;
+  }
+
   function buildWorld() {
-    scene.background = new THREE.Color(0x151926);
-    scene.fog = new THREE.FogExp2(0x151926, 0.008);
-    hemi = new THREE.HemisphereLight(0x8a9bb8, 0x2a2018, 1.05);
+    const skyTex = mats.sky.map;
+    scene.background = skyTex;
+    scene.fog = new THREE.FogExp2(0x1c2230, 0.0075);
+    hemi = new THREE.HemisphereLight(0x9aacC8, 0x3a2a1c, hemiBase);
     scene.add(hemi);
-    sunLight = new THREE.DirectionalLight(0xd8deea, 1.15);
-    sunLight.position.set(-20, 40, 16);
+    sunLight = new THREE.DirectionalLight(0xfff0d8, sunBase);
+    sunLight.position.set(-22, 36, 18);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(1024, 1024);
+    sunLight.shadow.bias = -0.0006;
+    sunLight.shadow.normalBias = 0.04;
+    const sc = sunLight.shadow.camera;
+    sc.near = 1; sc.far = 70;
+    sc.left = -20; sc.right = 20; sc.top = 20; sc.bottom = -20;
     scene.add(sunLight);
-    scene.add(new THREE.AmbientLight(0x3a4458, 0.45));
-    lavaLight = new THREE.PointLight(0xff5510, 2.2, 38, 1.4);
-    lavaLight.position.set(0, 1.4, 0);
+    scene.add(sunLight.target);
+    scene.add(new THREE.AmbientLight(0x4a5568, 0.42));
+    lavaLight = new THREE.PointLight(0xff5510, 2.6, 36, 1.4);
+    lavaLight.position.set(0, 2.2, -32);
     scene.add(lavaLight);
+    const lava2 = new THREE.PointLight(0xff6a1a, 1.4, 22, 1.6);
+    lava2.position.set(8, 1.6, -28);
+    scene.add(lava2);
 
-    const ground = new THREE.Mesh(new THREE.CircleGeometry(90, 48), mats.ground);
-    ground.rotation.x = -Math.PI / 2;
-    scene.add(ground);
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(160, 20, 12), mats.sky);
+    sky.castShadow = sky.receiveShadow = false;
+    sky.frustumCulled = false;
+    scene.add(sky);
 
-    const lavaGroup = new THREE.Group();
-    for (let i = 0; i < 7; i++) {
-      const a = (i / 7) * Math.PI * 2 + 0.3;
-      const r = rand(4, 14);
-      const strip = new THREE.Mesh(new THREE.PlaneGeometry(rand(4, 9), 0.55), mats.lava);
+    const base = noCast(new THREE.Mesh(new THREE.PlaneGeometry(140, 140, 1, 1), mats.ground));
+    base.rotation.x = -Math.PI / 2;
+    base.receiveShadow = true;
+    scene.add(base);
+
+    const ruinsG = noCast(new THREE.Mesh(new THREE.PlaneGeometry(56, 42, 1, 1), mats.wetStone));
+    ruinsG.rotation.x = -Math.PI / 2;
+    ruinsG.position.set(0, 0.03, 6);
+    ruinsG.receiveShadow = true;
+    scene.add(ruinsG);
+
+    const lavaG = noCast(new THREE.Mesh(new THREE.CircleGeometry(24, 28), mats.lavaGround));
+    lavaG.rotation.x = -Math.PI / 2;
+    lavaG.position.set(0, 0.035, -32);
+    lavaG.receiveShadow = true;
+    scene.add(lavaG);
+
+    const mistG = noCast(new THREE.Mesh(new THREE.CircleGeometry(24, 28), mats.moss));
+    mistG.rotation.x = -Math.PI / 2;
+    mistG.position.set(12, 0.03, 36);
+    mistG.receiveShadow = true;
+    scene.add(mistG);
+
+    // lava veins + pools
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + 0.2;
+      const r = rand(3, 12);
+      const strip = noCast(new THREE.Mesh(new THREE.PlaneGeometry(rand(4, 9), 0.5), mats.lava));
       strip.rotation.x = -Math.PI / 2;
       strip.rotation.z = a;
-      strip.position.set(Math.cos(a) * r, 0.02, Math.sin(a) * r);
-      lavaGroup.add(strip);
+      strip.position.set(Math.cos(a) * r, 0.05, -32 + Math.sin(a) * r);
+      scene.add(strip);
     }
-    const core = new THREE.Mesh(new THREE.CircleGeometry(2.4, 16), mats.lava);
-    core.rotation.x = -Math.PI / 2;
-    core.position.y = 0.015;
-    lavaGroup.add(core);
-    scene.add(lavaGroup);
+    const pool = noCast(new THREE.Mesh(new THREE.CircleGeometry(3.2, 16), mats.lava));
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(0, 0.045, -32);
+    scene.add(pool);
 
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2 + rand(-0.1, 0.1);
-      const r = rand(16, 28);
-      const p = makePillar();
-      p.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
-      p.rotation.y = rand(0, Math.PI);
-      scene.add(p);
-      pillars.push({ x: p.position.x, z: p.position.z, r: 1.35, mesh: p });
+    // glossy puddles in the ruins
+    for (let i = 0; i < 4; i++) {
+      const puddle = noCast(new THREE.Mesh(
+        new THREE.CircleGeometry(rand(1.1, 1.8), 12),
+        new THREE.MeshPhysicalMaterial({ color: 0x6a7a90, roughness: 0.08, metalness: 0.55, envMapIntensity: 1.4, transparent: true, opacity: 0.72 })
+      ));
+      puddle.rotation.x = -Math.PI / 2;
+      puddle.position.set(rand(-10, 10), 0.045, rand(-2, 14));
+      puddle.receiveShadow = true;
+      scene.add(puddle);
     }
-    for (let i = 0; i < 8; i++) {
+
+    // ruins pillars
+    const ruinSpots = [
+      [-10, 2], [10, 3], [-7, 14], [8, 14], [-16, 8], [16, 7], [-4, -4], [5, -6],
+      [-12, 18], [14, 16], [0, 18],
+    ];
+    ruinSpots.forEach((s, i) => {
+      const pil = makePillar(i % 4 === 0);
+      pil.position.set(s[0], 0, s[1]);
+      pil.rotation.y = rand(0, Math.PI);
+      scene.add(pil);
+      pillars.push({ x: s[0], z: s[1], r: 1.35, mesh: pil });
+    });
+
+    // charred rocks in lava field
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2 + 0.4;
+      const r = rand(8, 18);
+      const x = Math.cos(a) * r, z = -32 + Math.sin(a) * r;
+      const pil = makePillar(true);
+      pil.position.set(x, 0, z);
+      scene.add(pil);
+      pillars.push({ x: x, z: z, r: 1.35, mesh: pil });
+    }
+
+    // forest trees
+    for (let i = 0; i < 20; i++) {
       const a = rand(0, Math.PI * 2);
-      const r = rand(34, 40);
-      const p = makePillar(true);
-      p.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
-      p.rotation.y = rand(0, Math.PI);
-      scene.add(p);
+      const r = rand(5, 22);
+      const x = 12 + Math.cos(a) * r;
+      const z = 36 + Math.sin(a) * r * 0.75;
+      if (len2(x - 18, z - 40) < 5) continue;
+      const tr = makeTree();
+      tr.position.set(x, 0, z);
+      scene.add(tr);
+      pillars.push({ x: x, z: z, r: 0.7, mesh: tr });
+      worldProps.push(tr);
     }
-    for (let i = 0; i < 18; i++) {
-      const a = (i / 18) * Math.PI * 2 + rand(-0.08, 0.08);
-      const r = rand(70, 95);
-      const h = rand(18, 38);
-      const mtn = mesh(new THREE.ConeGeometry(rand(10, 20), h, 5), mats.mountain);
-      mtn.position.set(Math.cos(a) * r, h * 0.4, Math.sin(a) * r);
+
+    // lair rings
+    LAIRS.forEach((L) => {
+      const ring = makeLairRing(L.color === "#ff4a10" ? mats.lava : mats.voidGlow);
+      ring.position.set(L.x, 0, L.z);
+      scene.add(ring);
+      L.ring = ring;
+    });
+
+    // mountains beyond the playable wilds
+    for (let i = 0; i < 20; i++) {
+      const a = (i / 20) * Math.PI * 2 + rand(-0.06, 0.06);
+      const r = rand(78, 105);
+      const h = rand(20, 42);
+      const mtn = noCast(mesh(new THREE.ConeGeometry(rand(11, 22), h, 5), mats.mountain));
+      mtn.position.set(Math.cos(a) * r, h * 0.35, Math.sin(a) * r);
       mtn.rotation.y = rand(0, 1);
       scene.add(mtn);
     }
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(ARENA_R + 0.6, 0.7, 6, 48), mats.stone);
-    ring.rotation.x = Math.PI / 2;
-    ring.position.y = 0.3;
-    scene.add(ring);
+
+    // cliff teeth along the bounds so the edge feels real
+    function edgeRock(x, z) {
+      const h = rand(2.5, 5.5);
+      const rk = mesh(new THREE.BoxGeometry(rand(2.2, 3.6), h, rand(2.2, 3.6)), mats.stone);
+      rk.position.set(x, h * 0.4, z);
+      rk.rotation.y = rand(0, 1);
+      scene.add(rk);
+      pillars.push({ x: x, z: z, r: 1.6, mesh: rk });
+    }
+    for (let x = WORLD.minX + 2; x <= WORLD.maxX - 2; x += 6) {
+      edgeRock(x + rand(-1, 1), WORLD.minZ + rand(0.5, 2));
+      edgeRock(x + rand(-1, 1), WORLD.maxZ - rand(0.5, 2));
+    }
+    for (let z = WORLD.minZ + 4; z <= WORLD.maxZ - 4; z += 7) {
+      edgeRock(WORLD.minX + rand(0.5, 2), z + rand(-1, 1));
+      edgeRock(WORLD.maxX - rand(0.5, 2), z + rand(-1, 1));
+    }
 
     const emberGeo = new THREE.BufferGeometry();
-    const N = 120;
+    const N = 160;
     const pos = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = Math.random() * 50;
-      pos[i * 3] = Math.cos(a) * r;
+      pos[i * 3] = rand(-18, 18);
       pos[i * 3 + 1] = rand(0.4, 10);
-      pos[i * 3 + 2] = Math.sin(a) * r;
+      pos[i * 3 + 2] = rand(-44, -18);
     }
     emberGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     worldEmbers = new THREE.Points(emberGeo, new THREE.PointsMaterial({
-      color: 0xff7a30, size: 0.12, transparent: true, opacity: 0.7, depthWrite: false
+      color: 0xff7a30, size: 0.13, transparent: true, opacity: 0.75, depthWrite: false
     }));
+    worldEmbers.castShadow = worldEmbers.receiveShadow = false;
     scene.add(worldEmbers);
+
+    const mistGeo = new THREE.BufferGeometry();
+    const M = 140;
+    const mp = new Float32Array(M * 3);
+    for (let i = 0; i < M; i++) {
+      mp[i * 3] = 12 + rand(-22, 22);
+      mp[i * 3 + 1] = rand(0.3, 6);
+      mp[i * 3 + 2] = 36 + rand(-16, 16);
+    }
+    mistGeo.setAttribute("position", new THREE.BufferAttribute(mp, 3));
+    worldMist = new THREE.Points(mistGeo, new THREE.PointsMaterial({
+      color: 0xb8c4d4, size: 0.55, transparent: true, opacity: 0.28, depthWrite: false, sizeAttenuation: true
+    }));
+    scene.add(worldMist);
+  }
+
+  function makeTree() {
+    const g = new THREE.Group();
+    const trunk = mesh(new THREE.CylinderGeometry(0.16, 0.24, 1.6, 6), mats.bark);
+    trunk.position.y = 0.8;
+    const leaves = mesh(new THREE.ConeGeometry(1.15, 2.8, 6), mats.pine);
+    leaves.position.y = 2.5;
+    const leaves2 = mesh(new THREE.ConeGeometry(0.85, 1.8, 6), mats.pine);
+    leaves2.position.y = 3.5;
+    g.add(trunk, leaves, leaves2, blobShadow(0.7));
+    g.scale.setScalar(rand(0.85, 1.25));
+    return g;
+  }
+
+  function makeLairRing(mat) {
+    const g = new THREE.Group();
+    const tor = noCast(new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.16, 8, 24), mat));
+    tor.rotation.x = -Math.PI / 2;
+    tor.position.y = 0.12;
+    g.add(tor);
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      const st = mesh(new THREE.BoxGeometry(0.45, 1.8, 0.3), mats.stone);
+      st.position.set(Math.cos(a) * 3.6, 0.9, Math.sin(a) * 3.6);
+      st.lookAt(0, 0.9, 0);
+      g.add(st);
+    }
+    return g;
+  }
+
+  function buildEnvMap() {
+    try {
+      const es = new THREE.Scene();
+      es.add(new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), mats.sky));
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      envMap = pmrem.fromScene(es, 0.04).texture;
+      pmrem.dispose();
+      scene.environment = envMap;
+    } catch (e) {
+      envMap = null;
+    }
+  }
+
+  function applyQuality(q) {
+    if (q) quality = q;
+    const dpr = window.devicePixelRatio || 1;
+    const table = {
+      low:    { pr: 1, shadows: false, map: 256, soft: false, particles: 0.4, env: 0.25 },
+      medium: { pr: Math.min(dpr, 1.35), shadows: true, map: 512, soft: false, particles: 0.7, env: 0.8 },
+      high:   { pr: Math.min(dpr, 2), shadows: true, map: 1024, soft: true, particles: 1, env: 1.15 },
+    };
+    const cfg = table[quality] || table.medium;
+    gfx = cfg;
+    if (renderer) {
+      renderer.setPixelRatio(cfg.pr);
+      renderer.shadowMap.enabled = cfg.shadows;
+      renderer.shadowMap.type = cfg.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+      renderer.toneMappingExposure = quality === "low" ? 1.22 : 1.38;
+    }
+    if (sunLight) {
+      sunLight.castShadow = cfg.shadows;
+      sunLight.shadow.mapSize.set(cfg.map, cfg.map);
+      if (sunLight.shadow.map) {
+        sunLight.shadow.map.dispose();
+        sunLight.shadow.map = null;
+      }
+    }
+    if (scene) {
+      scene.environment = cfg.env > 0.3 ? envMap : null;
+      if (mats.wetStone) mats.wetStone.envMapIntensity = cfg.env;
+      scene.traverse(function (o) {
+        if (o.userData && o.userData.blob) o.visible = !cfg.shadows;
+      });
+    }
+    if (worldEmbers) worldEmbers.visible = cfg.particles > 0.35;
+    if (worldMist) worldMist.visible = cfg.particles > 0.5;
+    syncSettingsUI();
+    saveSettings();
+  }
+
+  function syncSettingsUI() {
+    const seg = el("quality-seg");
+    if (seg) {
+      Array.prototype.forEach.call(seg.querySelectorAll("button"), function (b) {
+        b.classList.toggle("on", b.getAttribute("data-q") === quality);
+      });
+    }
+    const ca = el("chk-auto"); if (ca) ca.checked = autoQuality;
+    const cf = el("chk-fps"); if (cf) cf.checked = showFps;
+    const meter = el("fps-meter");
+    if (meter) meter.classList.toggle("show", showFps);
+  }
+
+  function updateFps(rawDt) {
+    fpsFrames++;
+    fpsAccum += rawDt;
+    if (fpsAccum >= 0.4) {
+      fps = fpsFrames / fpsAccum;
+      fpsFrames = 0;
+      fpsAccum = 0;
+      const meter = el("fps-meter");
+      if (meter && showFps) meter.textContent = "FPS " + Math.round(fps);
+      if (autoQuality && autoGrace <= 0) {
+        if (autoCd > 0) autoCd -= 0.4;
+        if (fps < 26 && autoCd <= 0 && quality !== "low") {
+          applyQuality(quality === "high" ? "medium" : "low");
+          autoCd = 8;
+          autoStable = 0;
+          toast("QUALITY " + quality.toUpperCase());
+        } else if (fps > 52 && autoCd <= 0 && quality !== "high") {
+          autoStable += 0.4;
+          if (autoStable > 10) {
+            applyQuality(quality === "low" ? "medium" : "high");
+            autoCd = 10;
+            autoStable = 0;
+          }
+        } else autoStable = 0;
+      }
+    }
+  }
+
+  function updateShadowLight() {
+    if (!sunLight || !player.group) return;
+    const p = player.group.position;
+    sunLight.position.set(p.x - 18, 34, p.z + 14);
+    sunLight.target.position.set(p.x, 0, p.z);
+    sunLight.target.updateMatrixWorld();
+    sunLight.shadow.camera.updateProjectionMatrix();
+  }
+
+  function updateZoneFx() {
+    if (!player.group || !scene.fog) return;
+    const zn = zoneAt(player.group.position.x, player.group.position.z);
+    if (zn.id !== currentZone) {
+      currentZone = zn.id;
+      const lab = el("minimap-label");
+      if (lab) lab.textContent = zn.name;
+    }
+    const wantCol = zn.id === "lava" ? 0x2a1c16 : zn.id === "mist" ? 0x1a2430 : 0x1c2230;
+    const wantD = zn.id === "mist" ? 0.011 : zn.id === "lava" ? 0.008 : 0.0065;
+    scene.fog.color.lerp(new THREE.Color(wantCol), 0.04);
+    scene.fog.density += (wantD - scene.fog.density) * 0.04;
+    for (let i = 0; i < worldProps.length; i++) {
+      const pr = worldProps[i];
+      const d = len2(pr.position.x - player.group.position.x, pr.position.z - player.group.position.z);
+      pr.visible = d < 62;
+    }
   }
 
   function makePillar(broken) {
@@ -743,16 +1212,19 @@
   }
 
   function edgePos(clearR) {
-    let x, z, ok = false, guard = 0;
-    while (!ok && guard++ < 20) {
+    let x = 0, z = 0, ok = false, guard = 0;
+    const zn = ZONES[irand(0, ZONES.length - 1)];
+    while (!ok && guard++ < 24) {
       const a = Math.random() * Math.PI * 2;
-      const r = ARENA_R - rand(3, 8);
-      x = Math.cos(a) * r; z = Math.sin(a) * r;
+      x = zn.x + Math.cos(a) * rand(4, zn.rx - 2);
+      z = zn.z + Math.sin(a) * rand(4, zn.rz - 2);
+      x = clamp(x, WORLD.minX + 4, WORLD.maxX - 4);
+      z = clamp(z, WORLD.minZ + 4, WORLD.maxZ - 4);
       ok = true;
       if (player.group && len2(x - player.group.position.x, z - player.group.position.z) < (clearR || 10)) ok = false;
       for (const p of pillars) if (len2(x - p.x, z - p.z) < 3) ok = false;
     }
-    return { x, z };
+    return { x: x, z: z };
   }
 
   function spawnEnemy(kind) {
@@ -768,7 +1240,7 @@
     }
     meshG.position.set(pos.x, 0, pos.z);
     scene.add(meshG);
-    const e = { mesh: meshG, typ, hp, maxHp: hp, spd, dmg, radius, score: scoreV, atkCd: rand(0.4, 1.2), hitT: 0, yaw: 0, boss: false, phase: 0 };
+    const e = { mesh: meshG, typ, hp, maxHp: hp, spd, dmg, radius, score: scoreV, atkCd: rand(0.4, 1.2), hitT: 0, yaw: 0, boss: false, phase: 0, homeX: pos.x, homeZ: pos.z };
     enemies.push(e);
     return e;
   }
@@ -787,8 +1259,8 @@
     const yaw = player.yaw || 0;
     let bx = px + Math.sin(yaw) * 11;
     let bz = pz + Math.cos(yaw) * 11;
-    const bd = len2(bx, bz);
-    if (bd > ARENA_R - 6) { bx = (bx / bd) * (ARENA_R - 6); bz = (bz / bd) * (ARENA_R - 6); }
+    bx = clamp(bx, WORLD.minX + 6, WORLD.maxX - 6);
+    bz = clamp(bz, WORLD.minZ + 6, WORLD.maxZ - 6);
     meshG.position.set(bx, 0, bz);
     scene.add(meshG);
     const hp = def.hp + Math.max(0, wave - 3) * 220;
@@ -891,6 +1363,7 @@
     const i = enemies.indexOf(e);
     if (i >= 0) enemies.splice(i, 1);
     if (e.boss) {
+      if (e._lair) e._lair.defeated = true;
       bossRef = null;
       el("boss-wrap").classList.remove("show");
     }
@@ -1047,10 +1520,8 @@
   }
 
   function resolveCircle(x, z, rad) {
-    let px = x, pz = z;
-    const d0 = len2(px, pz);
-    const maxR = ARENA_R - rad;
-    if (d0 > maxR) { px = (px / d0) * maxR; pz = (pz / d0) * maxR; }
+    let px = clamp(x, WORLD.minX + rad, WORLD.maxX - rad);
+    let pz = clamp(z, WORLD.minZ + rad, WORLD.maxZ - rad);
     for (const p of pillars) {
       const dx = px - p.x, dz = pz - p.z;
       const d = len2(dx, dz);
@@ -1060,6 +1531,8 @@
         pz = p.z + (dz / d) * need;
       }
     }
+    px = clamp(px, WORLD.minX + rad, WORLD.maxX - rad);
+    pz = clamp(pz, WORLD.minZ + rad, WORLD.maxZ - rad);
     return { x: px, z: pz };
   }
 
@@ -1076,8 +1549,10 @@
     el("wave-v").textContent = String(wave);
     if (wave % 3 === 0) {
       wavePhase = "bossin";
-      waveTimer = 1.2;
-      toast("BOSS");
+      waveTimer = 25;
+      const L = LAIRS[(Math.floor(wave / 3) - 1) % LAIRS.length];
+      L.defeated = false;
+      toast("LAIR STIRS");
     } else {
       wavePhase = "spawn";
       toSpawn = 4 + wave * 2;
@@ -1085,6 +1560,24 @@
       toast("WAVE " + wave);
     }
     if (window.AudioFX) AudioFX.wave();
+  }
+
+  function tryEnterLair() {
+    if (!player.group || bossRef) return false;
+    for (let i = 0; i < LAIRS.length; i++) {
+      const L = LAIRS[i];
+      if (L.defeated) continue;
+      if (len2(player.group.position.x - L.x, player.group.position.z - L.z) < 8) {
+        const defIdx = L.bossIdx;
+        const e = spawnBoss(defIdx);
+        if (e) {
+          e.mesh.position.set(L.x, 0, L.z);
+          e._lair = L;
+        }
+        return true;
+      }
+    }
+    return false;
   }
 
   function updateWaves(dt) {
@@ -1101,7 +1594,11 @@
         waveTimer = 2.0;
       }
     } else if (wavePhase === "bossin") {
-      if (waveTimer <= 0) { spawnBoss(); wavePhase = "boss"; }
+      if (tryEnterLair()) wavePhase = "boss";
+      else if (waveTimer <= 0) {
+        toast("SEEK THE LAIR");
+        waveTimer = 18;
+      }
     } else if (wavePhase === "boss") {
       if (!bossRef && enemies.length === 0) {
         wavePhase = "clear";
@@ -1205,7 +1702,15 @@
       const p = e.mesh.position;
       const dx = px - p.x, dz = pz - p.z;
       const dist = len2(dx, dz) || 1;
-      const want = Math.atan2(dx, dz);
+      let tx = px, tz = pz, chase = dist < 20 || e.boss;
+      if (!chase && e.homeX != null) {
+        const wa = time * 0.4 + (e.homeX || 0);
+        tx = e.homeX + Math.cos(wa) * 6;
+        tz = e.homeZ + Math.sin(wa * 0.8) * 6;
+      }
+      const tdx = tx - p.x, tdz = tz - p.z;
+      const tdist = len2(tdx, tdz) || 1;
+      const want = Math.atan2(chase ? dx : tdx, chase ? dz : tdz);
       e.yaw = lerpAng(e.yaw || 0, want, 0.12);
       e.mesh.rotation.y = e.yaw;
       e.atkCd -= dt;
@@ -1218,8 +1723,8 @@
           e.mesh.userData.wings[0].rotation.z = fl;
           e.mesh.userData.wings[1].rotation.z = -fl;
         }
-        if (dist > 7) {
-          const n = resolveCircle(p.x + (dx / dist) * e.spd * dt, p.z + (dz / dist) * e.spd * dt, e.radius);
+        if (!chase || dist > 7) {
+          const n = resolveCircle(p.x + (tdx / tdist) * e.spd * dt, p.z + (tdz / tdist) * e.spd * dt, e.radius);
           p.x = n.x; p.z = n.z;
         } else if (e.atkCd <= 0) {
           e.atkCd = 1.6;
@@ -1230,8 +1735,8 @@
         }
       } else if (e.typ === "hound" || e.typ === "guard") {
         const stop = e.radius + player.radius + 0.15;
-        if (dist > stop) {
-          const n = resolveCircle(p.x + (dx / dist) * e.spd * dt, p.z + (dz / dist) * e.spd * dt, e.radius);
+        if (!chase || dist > stop) {
+          const n = resolveCircle(p.x + (tdx / tdist) * e.spd * (chase ? 1 : 0.55) * dt, p.z + (tdz / tdist) * e.spd * (chase ? 1 : 0.55) * dt, e.radius);
           p.x = n.x; p.z = n.z;
         } else if (e.atkCd <= 0) {
           e.atkCd = e.typ === "guard" ? 1.4 : 0.9;
@@ -1425,12 +1930,23 @@
         floaters.splice(i, 1);
       }
     }
-    if (worldEmbers) {
+    if (worldEmbers && worldEmbers.visible) {
       const pos = worldEmbers.geometry.attributes.position;
       for (let i = 0; i < pos.count; i++) {
         let y = pos.getY(i) + dt * 0.7;
         if (y > 11) y = 0.3;
         pos.setY(i, y);
+      }
+      pos.needsUpdate = true;
+    }
+    if (worldMist && worldMist.visible) {
+      const pos = worldMist.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        let y = pos.getY(i) + dt * 0.25;
+        let x = pos.getX(i) + Math.sin(time + i) * dt * 0.15;
+        if (y > 7) y = 0.3;
+        pos.setY(i, y);
+        pos.setX(i, x);
       }
       pos.needsUpdate = true;
     }
@@ -1457,8 +1973,8 @@
   function maybeLightning(dt) {
     flashT = Math.max(0, flashT - dt);
     if (Math.random() < dt * 0.08) flashT = 0.12;
-    if (hemi) hemi.intensity = 1.05 + (flashT > 0 ? 1.2 : 0);
-    if (sunLight) sunLight.intensity = 1.15 + (flashT > 0 ? 0.7 : 0);
+    if (hemi) hemi.intensity = hemiBase + (flashT > 0 ? 1.2 : 0);
+    if (sunLight) sunLight.intensity = sunBase + (flashT > 0 ? 0.7 : 0);
   }
 
   function updateHomeCam(dt) {
@@ -1474,6 +1990,7 @@
     }
     if (worldEmbers) updateParticles(dt);
     maybeLightning(dt);
+    updateShadowLight();
     renderer.render(scene, camera);
   }
 
@@ -1523,15 +2040,29 @@
     ctx.beginPath(); ctx.arc(R, R, R, 0, Math.PI * 2); ctx.clip();
     ctx.fillStyle = "#12151c";
     ctx.fillRect(0, 0, W, W);
-    const scale = (R - 8) / ARENA_R;
+    const scale = (R - 8) / 48;
     const px = player.group.position.x, pz = player.group.position.z;
     function map(x, z) { return [R + (x - px) * scale, R + (z - pz) * scale]; }
-    ctx.strokeStyle = "rgba(212,184,106,0.35)";
+    function clampEdge(x, y) {
+      const dx = x - R, dy = y - R, d = Math.sqrt(dx * dx + dy * dy) || 1;
+      if (d > R - 8) { return [R + dx / d * (R - 8), R + dy / d * (R - 8), true]; }
+      return [x, y, false];
+    }
+    // zones
+    const zcols = { ruins: "rgba(90,100,120,0.35)", lava: "rgba(180,70,30,0.35)", mist: "rgba(70,110,90,0.35)" };
+    for (let i = 0; i < ZONES.length; i++) {
+      const zn = ZONES[i];
+      const c0 = map(zn.x, zn.z);
+      ctx.fillStyle = zcols[zn.id] || "rgba(80,80,80,0.3)";
+      ctx.beginPath();
+      ctx.ellipse(c0[0], c0[1], zn.rx * scale, zn.rz * scale, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // world bounds
+    ctx.strokeStyle = "rgba(212,184,106,0.4)";
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    const c0 = map(0, 0);
-    ctx.arc(c0[0], c0[1], ARENA_R * scale, 0, Math.PI * 2);
-    ctx.stroke();
+    const b1 = map(WORLD.minX, WORLD.minZ), b2 = map(WORLD.maxX, WORLD.maxZ);
+    ctx.strokeRect(b1[0], b1[1], b2[0] - b1[0], b2[1] - b1[1]);
     ctx.fillStyle = "rgba(160,160,170,0.55)";
     for (const p of pillars) {
       const m = map(p.x, p.z);
@@ -1546,6 +2077,23 @@
       const m = map(e.mesh.position.x, e.mesh.position.z);
       ctx.fillStyle = e.boss ? "#ff6a20" : "#e23a3a";
       ctx.beginPath(); ctx.arc(m[0], m[1], e.boss ? 6 : 3.4, 0, Math.PI * 2); ctx.fill();
+    }
+    for (let i = 0; i < LAIRS.length; i++) {
+      const L = LAIRS[i];
+      const raw = map(L.x, L.z);
+      const c = clampEdge(raw[0], raw[1]);
+      ctx.fillStyle = L.defeated ? "#667" : L.color;
+      ctx.beginPath();
+      const s = 5;
+      ctx.moveTo(c[0], c[1] - s);
+      ctx.lineTo(c[0] + s, c[1]);
+      ctx.lineTo(c[0], c[1] + s);
+      ctx.lineTo(c[0] - s, c[1]);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#fff4d0";
+      ctx.lineWidth = 1;
+      ctx.stroke();
     }
     ctx.fillStyle = "#3a8aff";
     ctx.beginPath(); ctx.arc(R, R, 5, 0, Math.PI * 2); ctx.fill();
@@ -1567,10 +2115,10 @@
   }
 
   function showScreen(id) {
-    ["home", "howto", "pause", "gameover"].forEach((s) => el(s).classList.toggle("show", s === id));
+    ["home", "howto", "pause", "gameover", "settings"].forEach((s) => el(s).classList.toggle("show", s === id));
   }
   function hideScreens() {
-    ["home", "howto", "pause", "gameover"].forEach((s) => el(s).classList.remove("show"));
+    ["home", "howto", "pause", "gameover", "settings"].forEach((s) => el(s).classList.remove("show"));
   }
 
   function clearEntities() {
@@ -1602,7 +2150,7 @@
     activePower = null;
     powerT = 0;
     if (player.group) {
-      player.group.position.set(0, 0, 8);
+      player.group.position.set(0, 0, 6);
       player.group.rotation.y = 0;
       player.group.visible = true;
     }
@@ -1632,11 +2180,19 @@
     mode = "play";
     hideScreens();
     el("hud").classList.remove("hidden");
-    camera.position.set(0, 5, 16);
-    _look.set(0, 1.2, 8);
+    camera.position.set(0, 5, 14);
+    _look.set(0, 1.2, 6);
+    player.group.position.set(0, 0, 6);
+    LAIRS.forEach(function (L) { L.defeated = false; });
     spawnPickup("sword", 2.5, 6);
     spawnPickup("bow", -2.5, 6);
     spawnPickup("gun", 0, 5);
+    spawnPickup("heal", -8, 12);
+    spawnPickup("shield", 14, -8);
+    spawnPickup("gun", 4, -26);
+    spawnPickup("sword", -10, -28);
+    spawnPickup("bow", 16, 34);
+    spawnPickup("overdrive", 8, 30);
     beginWave(1);
     if (window.AudioFX) AudioFX.ui();
   }
@@ -1756,6 +2312,22 @@
       if (window.AudioFX) AudioFX.setMuted(muted);
       el("btn-mute").textContent = muted ? "\uD83D\uDD07" : "\u266A";
     });
+    el("btn-settings-home").addEventListener("click", (e) => { e.preventDefault(); unlockAudio(); openSettings("home"); });
+    el("btn-settings-pause").addEventListener("click", (e) => { e.preventDefault(); openSettings("pause"); });
+    el("btn-settings-hud").addEventListener("click", (e) => { e.preventDefault(); openSettings(mode === "play" ? "play" : "pause"); });
+    el("btn-settings-back").addEventListener("click", (e) => { e.preventDefault(); closeSettings(); });
+    el("quality-seg").addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      e.preventDefault();
+      applyQuality(b.getAttribute("data-q"));
+    });
+    el("chk-auto").addEventListener("change", (e) => { autoQuality = e.target.checked; saveSettings(); });
+    el("chk-fps").addEventListener("change", (e) => {
+      showFps = e.target.checked;
+      el("fps-meter").classList.toggle("show", showFps);
+      saveSettings();
+    });
 
     document.addEventListener("visibilitychange", () => {
       if (document.hidden && mode === "play") pauseGame();
@@ -1796,9 +2368,23 @@
 
   function tick() {
     requestAnimationFrame(tick);
-    const dt = Math.min(0.05, clock.getDelta());
-    if (mode === "home" || mode === "howto") {
-      updateHomeCam(dt);
+    const rawDt = clock.getDelta();
+    updateFps(rawDt);
+    if (autoGrace > 0) autoGrace -= rawDt;
+    if (autoCd > 0) autoCd = Math.max(0, autoCd - rawDt);
+    const dt = Math.min(0.05, rawDt);
+    if (mode === "home" || mode === "howto" || mode === "settings") {
+      if (mode === "settings" && settingsFrom === "pause") {
+        time += dt;
+        maybeLightning(dt);
+        updateParticles(dt);
+        updateCamera(dt);
+        updateShadowLight();
+        drawMinimap();
+        renderer.render(scene, camera);
+      } else {
+        updateHomeCam(dt);
+      }
       return;
     }
     time += dt;
@@ -1822,27 +2408,51 @@
     }
     updateParticles(dt);
     updateCamera(dt);
+    updateShadowLight();
+    if (mode === "play") updateZoneFx();
     if (mode === "play" || mode === "pause" || mode === "over") drawMinimap();
     renderer.render(scene, camera);
   }
 
+  function openSettings(from) {
+    settingsFrom = from || "home";
+    if (from === "play") {
+      pauseGame();
+      settingsFrom = "pause";
+    }
+    syncSettingsUI();
+    showScreen("settings");
+    if (window.AudioFX) AudioFX.ui();
+  }
+  function closeSettings() {
+    if (settingsFrom === "pause") showScreen("pause");
+    else if (settingsFrom === "howto") showScreen("howto");
+    else showScreen("home");
+  }
+
   function init() {
     loadHS();
+    loadSettings();
     const canvas = el("c");
     renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
     renderer.setSize(window.innerWidth, window.innerHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.28;
-    camera = new THREE.PerspectiveCamera(55, window.innerWidth / Math.max(1, window.innerHeight), 0.1, 200);
+    renderer.toneMappingExposure = 1.38;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    camera = new THREE.PerspectiveCamera(55, window.innerWidth / Math.max(1, window.innerHeight), 0.1, 240);
     camera.position.set(0, 7.5, 18);
     scene = new THREE.Scene();
     clock = new THREE.Clock();
     initMats();
     buildWorld();
+    buildEnvMap();
     buildHero();
     player.group.position.set(0, 0, 4);
+    applyQuality(quality);
+    syncSettingsUI();
     minimapCtx = el("minimap").getContext("2d");
     bindInput();
     resize();
@@ -1861,13 +2471,15 @@
     tick();
 
     window.__CAS = {
+      version: VERSION,
       start: startGame,
       pause: pauseGame,
       resume: resumeGame,
       home: quitToHome,
+      openSettings: openSettings,
       spawnBoss: function (i) { if (mode !== "play") startGame(); spawnBoss(i || 0); },
-      spawnEnemy: function (t) { return spawnEnemy(t); },
-      spawnPickup: function (t, x, z) { spawnPickup(t, x == null ? 1 : x, z == null ? 6 : z); },
+      spawnEnemy: function (typ) { return spawnEnemy(typ); },
+      spawnPickup: function (typ, x, z) { spawnPickup(typ, x == null ? 1 : x, z == null ? 6 : z); },
       killPlayer: function () { player.hp = 0; updateHP(); gameOver(); },
       giveAll: function () {
         player.swordLv = 3; player.bowLv = 3; player.gunLv = 3;
@@ -1877,12 +2489,28 @@
         updateSkillLocks(); updatePowerTag();
       },
       setWave: function (n) { beginWave(n); },
+      setQuality: function (q) { applyQuality(q); },
+      setShowFps: function (v) { showFps = !!v; el("fps-meter").classList.toggle("show", showFps); saveSettings(); },
+      setAutoQuality: function (v) { autoQuality = !!v; saveSettings(); },
+      teleport: function (x, z) {
+        if (!player.group) return;
+        const r = resolveCircle(x, z, player.radius);
+        player.group.position.set(r.x, 0, r.z);
+      },
+      gotoLair: function (i) {
+        const L = LAIRS[i || 0];
+        if (!L || !player.group) return;
+        player.group.position.set(L.x, 0, L.z + 6);
+        player.yaw = 0;
+      },
       getState: function () {
         return {
-          mode: mode, score: score, wave: wave, hp: player.hp,
+          version: VERSION, mode: mode, score: score, wave: wave, hp: player.hp,
           gunLv: player.gunLv, swordLv: player.swordLv, bowLv: player.bowLv,
+          quality: quality, fps: Math.round(fps), showFps: showFps, shadows: !!(gfx && gfx.shadows),
+          zone: currentZone, pos: player.group ? { x: player.group.position.x, z: player.group.position.z } : null,
           boss: bossRef ? { name: bossRef.name, hp: bossRef.hp, maxHp: bossRef.maxHp } : null,
-          enemies: enemies.length, pickups: pickups.map((p) => p.typ),
+          enemies: enemies.length, pickups: pickups.map((pk) => pk.typ),
         };
       },
     };

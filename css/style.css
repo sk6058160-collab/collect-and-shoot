@@ -459,3 +459,77 @@ canvas#c {
 }
 
 #hud.hidden { visibility: hidden; }
+
+#fps-meter {
+  position: absolute;
+  top: max(52px, calc(var(--safe-t) + 44px));
+  right: max(10px, var(--safe-r));
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  text-shadow: 0 1px 3px #000;
+  background: rgba(8,10,16,0.55);
+  border: 1px solid rgba(212,184,106,0.4);
+  border-radius: 6px;
+  padding: 3px 8px;
+  pointer-events: none;
+  display: none;
+  z-index: 6;
+}
+#fps-meter.show { display: block; }
+#hud.hidden ~ #fps-meter, #fps-meter { /* fps sits in hud */ }
+
+#settings-box {
+  background: var(--panel);
+  border: 1px solid var(--gold);
+  border-radius: 14px;
+  padding: 20px 22px 18px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+  max-width: 520px;
+  width: 86vw;
+  text-align: left;
+}
+#settings-box h2 {
+  text-align: center;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+  margin-bottom: 14px;
+  font-size: 16px;
+}
+.set-row { margin-bottom: 12px; }
+.set-lab {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+.seg { display: flex; gap: 0; border: 1px solid var(--gold); border-radius: 8px; overflow: hidden; }
+.seg button {
+  flex: 1;
+  appearance: none;
+  border: 0;
+  background: rgba(10,12,18,0.8);
+  color: #c8b894;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  padding: 10px 8px;
+  text-transform: uppercase;
+  pointer-events: auto;
+}
+.seg button + button { border-left: 1px solid rgba(212,184,106,0.4); }
+.seg button.on { background: linear-gradient(180deg, #e08a2a, #9a3a0c); color: #fff4d0; }
+.set-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 13px;
+  color: #f3e7c8;
+  pointer-events: auto;
+}
+.set-check input { width: 16px; height: 16px; accent-color: #e08a2a; }
+.set-note { font-size: 11px; color: #c8b894; line-height: 1.45; margin: 10px 0 6px; }
+.set-ver { text-align: center; font-size: 11px; letter-spacing: 0.16em; color: var(--gold); margin-top: 4px; }
