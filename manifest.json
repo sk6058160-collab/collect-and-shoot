@@ -1,7 +1,7 @@
 {
   "name": "Collect and Shoot",
   "short_name": "Collect & Shoot",
-  "description": "Dark-fantasy open wilds v2: collect swords, guns, bows and powers, then hunt bosses in marked lairs.",
+  "description": "Daytime open wilds v2.1: collect swords, guns, bows and powers, then hunt bosses in marked lairs.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
