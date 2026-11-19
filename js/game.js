@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const VERSION = "2.0";
+  const VERSION = "2.1";
   const HS_KEY = "cas_highscore_v1";
   const SET_KEY = "cas_settings_v2";
   const MAX_HP = 100;
@@ -26,7 +26,7 @@
   let fps = 0, fpsAccum = 0, fpsFrames = 0, autoGrace = 5, autoCd = 0, autoStable = 0;
   let envMap = null, settingsFrom = "home", currentZone = "ruins";
   let gfx = { shadows: true, particles: 1, pr: 1.5 };
-  let hemiBase = 1.12, sunBase = 1.35;
+  let hemiBase = 1.45, sunBase = 1.9;
   const worldProps = [];
 
   const enemies = [], bullets = [], arrows = [], pickups = [], particles = [], floaters = [], pillars = [];
@@ -153,9 +153,9 @@
     col.width = col.height = rou.width = rou.height = size;
     const c = col.getContext("2d");
     const r = rou.getContext("2d");
-    c.fillStyle = "#16181e";
+    c.fillStyle = "#c4b089";
     c.fillRect(0, 0, size, size);
-    r.fillStyle = "#d0d0d0";
+    r.fillStyle = "#d8d8d8";
     r.fillRect(0, 0, size, size);
     const n = 8, pad = Math.floor(size * 0.025);
     const tw = Math.floor(size / n);
@@ -163,26 +163,20 @@
       for (let tx = 0; tx < n; tx++) {
         const x = tx * tw + pad, y = ty * tw + pad;
         const w = tw - pad * 2, h = tw - pad * 2;
-        const shade = 18 + ((tx * 13 + ty * 7) % 22);
-        const blu = 8 + ((tx + ty * 3) % 10);
-        c.fillStyle = "rgb(" + (28 + shade) + "," + (30 + shade) + "," + (36 + shade + blu) + ")";
+        const shade = ((tx * 13 + ty * 7) % 28);
+        c.fillStyle = "rgb(" + (196 + shade) + "," + (168 + shade * 0.7) + "," + (118 + shade * 0.35) + ")";
         c.fillRect(x, y, w, h);
-        // wet streak
         const g = c.createLinearGradient(x, y, x + w, y + h);
-        g.addColorStop(0, "rgba(180,200,220,0.10)");
-        g.addColorStop(0.45, "rgba(255,255,255,0)");
-        g.addColorStop(1, "rgba(80,100,130,0.10)");
+        g.addColorStop(0, "rgba(255,248,230,0.28)");
+        g.addColorStop(0.5, "rgba(255,255,255,0)");
+        g.addColorStop(1, "rgba(150,110,70,0.12)");
         c.fillStyle = g;
         c.fillRect(x, y, w, h);
-        // edge highlight
-        c.strokeStyle = "rgba(200,210,225,0.18)";
+        c.strokeStyle = "rgba(255,250,235,0.35)";
         c.lineWidth = 1;
         c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-        r.fillStyle = (tx + ty) % 2 === 0 ? "#3a3a3a" : "#4a4a4a";
+        r.fillStyle = (tx + ty) % 2 === 0 ? "#b0b0b0" : "#c4c4c4";
         r.fillRect(x, y, w, h);
-        // glossier patches
-        r.fillStyle = "rgba(20,20,20,0.55)";
-        r.fillRect(x + 2, y + 2, w * 0.45, h * 0.3);
       }
     }
     return { map: canvasTex(col, 10), rough: canvasTex(rou, 10) };
@@ -192,11 +186,11 @@
     const c = document.createElement("canvas");
     c.width = c.height = size;
     const ctx = c.getContext("2d");
-    ctx.fillStyle = "#1a2218";
+    ctx.fillStyle = "#5a8a3a";
     ctx.fillRect(0, 0, size, size);
     for (let i = 0; i < 220; i++) {
       const x = rand(0, size), y = rand(0, size), rad = rand(4, 16);
-      ctx.fillStyle = "rgba(" + irand(30, 70) + "," + irand(60, 110) + "," + irand(28, 60) + "," + rand(0.3, 0.7) + ")";
+      ctx.fillStyle = "rgba(" + irand(70, 140) + "," + irand(130, 190) + "," + irand(40, 80) + "," + rand(0.35, 0.75) + ")";
       ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
     }
     ctx.strokeStyle = "rgba(10,14,10,0.4)";
@@ -214,12 +208,12 @@
     const c = document.createElement("canvas");
     c.width = c.height = size;
     const ctx = c.getContext("2d");
-    ctx.fillStyle = "#5a5c64";
+    ctx.fillStyle = "#c8b492";
     ctx.fillRect(0, 0, size, size);
     for (let i = 0; i < size * size * 0.08; i++) {
       const x = irand(0, size - 1), y = irand(0, size - 1);
-      const v = irand(40, 110);
-      ctx.fillStyle = "rgb(" + v + "," + (v - 4) + "," + (v + 4) + ")";
+      const v = irand(150, 210);
+      ctx.fillStyle = "rgb(" + v + "," + (v - 18) + "," + (v - 40) + ")";
       ctx.fillRect(x, y, irand(1, 3), irand(1, 3));
     }
     ctx.strokeStyle = "rgba(20,18,16,0.5)";
@@ -245,20 +239,21 @@
     c.width = w; c.height = h;
     const ctx = c.getContext("2d");
     const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, "#0b0e16");
-    g.addColorStop(0.42, "#1a2230");
-    g.addColorStop(0.62, "#3a3a42");
-    g.addColorStop(0.78, "#6a5a4a");
-    g.addColorStop(0.9, "#2a241c");
-    g.addColorStop(1, "#12141a");
+    g.addColorStop(0, "#3a8adf");
+    g.addColorStop(0.35, "#6bb4ef");
+    g.addColorStop(0.62, "#a8d6f8");
+    g.addColorStop(0.82, "#e8f2ff");
+    g.addColorStop(0.92, "#f3e6c8");
+    g.addColorStop(1, "#dceccc");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
-    ctx.globalAlpha = 0.35;
-    for (let i = 0; i < 18; i++) {
-      const cx = rand(0, w), cy = rand(h * 0.25, h * 0.65), rx = rand(40, 120), ry = rand(12, 28);
-      const cg = ctx.createRadialGradient(cx, cy, 4, cx, cy, rx);
-      cg.addColorStop(0, "rgba(70,74,86,0.9)");
-      cg.addColorStop(1, "rgba(20,22,30,0)");
+    ctx.globalAlpha = 0.85;
+    for (let i = 0; i < 16; i++) {
+      const cx = rand(0, w), cy = rand(h * 0.18, h * 0.58), rx = rand(36, 110), ry = rand(10, 24);
+      const cg = ctx.createRadialGradient(cx, cy, 2, cx, cy, rx);
+      cg.addColorStop(0, "rgba(255,255,255,0.95)");
+      cg.addColorStop(0.45, "rgba(240,248,255,0.55)");
+      cg.addColorStop(1, "rgba(200,220,255,0)");
       ctx.fillStyle = cg;
       ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
     }
@@ -299,26 +294,25 @@
     const lavaMap = lavaTex(256);
     lavaMap.wrapS = lavaMap.wrapT = THREE.RepeatWrapping;
     lavaMap.repeat.set(4, 4);
-    mats.ground = new THREE.MeshStandardMaterial({ map: rock, color: 0x8a8e96, roughness: 0.92, metalness: 0.06 });
-    mats.wetStone = new THREE.MeshPhysicalMaterial({
-      map: tiles.map, roughnessMap: tiles.rough, color: 0xc4c8d2,
-      roughness: 0.28, metalness: 0.22, envMapIntensity: 1.15,
-      clearcoat: 0.4, clearcoatRoughness: 0.18,
+    mats.ground = new THREE.MeshStandardMaterial({ map: rock, color: 0xd2c4a0, roughness: 0.92, metalness: 0.04 });
+    mats.wetStone = new THREE.MeshStandardMaterial({
+      map: tiles.map, roughnessMap: tiles.rough, color: 0xf0e2c4,
+      roughness: 0.72, metalness: 0.06, envMapIntensity: 0.35,
     });
-    mats.moss = new THREE.MeshStandardMaterial({ map: moss, color: 0x8a9a78, roughness: 0.92, metalness: 0.04 });
+    mats.moss = new THREE.MeshStandardMaterial({ map: moss, color: 0x8ec85a, roughness: 0.9, metalness: 0.02 });
     mats.lavaGround = new THREE.MeshStandardMaterial({
-      map: lavaMap, color: 0x4a2a22, roughness: 0.78, metalness: 0.08,
-      emissive: 0xff3a00, emissiveMap: lavaMap, emissiveIntensity: 0.85,
+      map: lavaMap, color: 0x8a5340, roughness: 0.78, metalness: 0.08,
+      emissive: 0xff3a00, emissiveMap: lavaMap, emissiveIntensity: 0.55,
     });
-    mats.stone = new THREE.MeshStandardMaterial({ map: rock2, color: 0xb0b4bc, roughness: 0.82, metalness: 0.08 });
-    mats.mountain = new THREE.MeshStandardMaterial({ map: rock2, color: 0x6a7080, roughness: 0.95, metalness: 0.04, flatShading: true });
+    mats.stone = new THREE.MeshStandardMaterial({ map: rock2, color: 0xe8d5b0, roughness: 0.82, metalness: 0.06 });
+    mats.mountain = new THREE.MeshStandardMaterial({ map: rock2, color: 0xd4c8b0, roughness: 0.95, metalness: 0.04, flatShading: true });
     mats.lava = new THREE.MeshStandardMaterial({ map: lavaMap, color: 0xff6a1a, emissive: 0xff3a00, emissiveIntensity: 1.6, roughness: 0.55 });
-    mats.bark = new THREE.MeshStandardMaterial({ color: 0x3a2a1c, roughness: 0.9 });
-    mats.pine = new THREE.MeshStandardMaterial({ color: 0x1c3a28, roughness: 0.85, flatShading: true });
+    mats.bark = new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.9 });
+    mats.pine = new THREE.MeshStandardMaterial({ color: 0x2f8a3e, roughness: 0.85, flatShading: true });
     mats.sky = new THREE.MeshBasicMaterial({ map: stormSkyTex(), side: THREE.BackSide, fog: false, depthWrite: false });
     const cracks = crackEmissive(256);
-    mats.heroBlue = new THREE.MeshStandardMaterial({ color: 0x3a78ff, roughness: 0.4, metalness: 0.16, emissive: 0x0a2266, emissiveIntensity: 0.45 });
-    mats.heroSpike = new THREE.MeshStandardMaterial({ color: 0x1a4ad0, roughness: 0.36, metalness: 0.22, emissive: 0x071850, emissiveIntensity: 0.35 });
+    mats.heroBlue = new THREE.MeshStandardMaterial({ color: 0x3a86ff, roughness: 0.42, metalness: 0.12, emissive: 0x123080, emissiveIntensity: 0.12 });
+    mats.heroSpike = new THREE.MeshStandardMaterial({ color: 0x1d5ae0, roughness: 0.38, metalness: 0.16, emissive: 0x0a2060, emissiveIntensity: 0.1 });
     mats.heroBelly = new THREE.MeshStandardMaterial({ color: 0xc5d4f0, roughness: 0.55, metalness: 0.05 });
     mats.heroGold = new THREE.MeshStandardMaterial({ color: 0xc9a227, roughness: 0.35, metalness: 0.7 });
     mats.heroDark = new THREE.MeshStandardMaterial({ color: 0x1a1c24, roughness: 0.5, metalness: 0.2 });
@@ -335,17 +329,27 @@
     mats.arrowHead = new THREE.MeshStandardMaterial({ color: 0xb8c0cc, roughness: 0.25, metalness: 0.85 });
     mats.fletch = new THREE.MeshStandardMaterial({ color: 0x1e6a3a, roughness: 0.7, side: THREE.DoubleSide });
     mats.chargeArrow = new THREE.MeshStandardMaterial({ color: 0xffc44a, emissive: 0xff8010, emissiveIntensity: 1.1, metalness: 0.4, roughness: 0.3 });
-    mats.imp = new THREE.MeshStandardMaterial({ color: 0x4a1a10, roughness: 0.5, emissive: 0x3a0800, emissiveIntensity: 0.4 });
-    mats.impGlow = new THREE.MeshStandardMaterial({ color: 0xff5510, emissive: 0xff3300, emissiveIntensity: 1.3 });
-    mats.hound = new THREE.MeshStandardMaterial({ color: 0x1a1420, roughness: 0.7, metalness: 0.1 });
-    mats.houndEye = new THREE.MeshStandardMaterial({ color: 0xff2244, emissive: 0xff0022, emissiveIntensity: 1.2 });
-    mats.guard = new THREE.MeshStandardMaterial({ color: 0x5a5c62, roughness: 0.85, metalness: 0.2, map: rock2 });
-    mats.bossRock = new THREE.MeshStandardMaterial({ color: 0x3a2a24, roughness: 0.72, metalness: 0.18, emissive: 0xff2a00, emissiveMap: cracks, emissiveIntensity: 0.85 });
+    mats.imp = new THREE.MeshStandardMaterial({ color: 0xff5a24, roughness: 0.48, emissive: 0x8a1400, emissiveIntensity: 0.12 });
+    mats.impDark = new THREE.MeshStandardMaterial({ color: 0xb83210, roughness: 0.5 });
+    mats.impGlow = new THREE.MeshStandardMaterial({ color: 0xffc44a, emissive: 0xff7a00, emissiveIntensity: 0.7 });
+    mats.impWing = new THREE.MeshStandardMaterial({ color: 0x8a1a3a, roughness: 0.55, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
+    mats.hound = new THREE.MeshStandardMaterial({ color: 0xa85a28, roughness: 0.7, metalness: 0.06 });
+    mats.houndDark = new THREE.MeshStandardMaterial({ color: 0x6a3414, roughness: 0.72 });
+    mats.houndEye = new THREE.MeshStandardMaterial({ color: 0xffee66, emissive: 0xaa8800, emissiveIntensity: 0.45 });
+    mats.gobSkin = new THREE.MeshStandardMaterial({ color: 0x6aaa32, roughness: 0.62 });
+    mats.gobDark = new THREE.MeshStandardMaterial({ color: 0x3a6a18, roughness: 0.65 });
+    mats.gobArmor = new THREE.MeshStandardMaterial({ color: 0xc48a2a, roughness: 0.38, metalness: 0.7 });
+    mats.gobLeather = new THREE.MeshStandardMaterial({ color: 0x6a3a18, roughness: 0.8 });
+    mats.golem = new THREE.MeshStandardMaterial({ color: 0xb8b0a0, roughness: 0.78, metalness: 0.12, map: rock2 });
+    mats.golemMoss = new THREE.MeshStandardMaterial({ color: 0x4a8a38, roughness: 0.9 });
+    mats.golemRune = new THREE.MeshStandardMaterial({ color: 0x44e0c0, emissive: 0x1aa080, emissiveIntensity: 0.8 });
+    mats.guard = new THREE.MeshStandardMaterial({ color: 0xb8b0a0, roughness: 0.85, metalness: 0.2, map: rock2 });
+    mats.bossRock = new THREE.MeshStandardMaterial({ color: 0xb07a52, roughness: 0.68, metalness: 0.14, emissive: 0xff2a00, emissiveMap: cracks, emissiveIntensity: 0.5 });
     mats.bossLava = new THREE.MeshStandardMaterial({ color: 0xff4a10, emissive: 0xff2a00, emissiveIntensity: 1.85, roughness: 0.35 });
-    mats.bossHorn = new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.45, metalness: 0.3 });
-    mats.voidBody = new THREE.MeshStandardMaterial({ color: 0x1a1030, roughness: 0.45, metalness: 0.35, emissive: 0x1a0040, emissiveIntensity: 0.4 });
+    mats.bossHorn = new THREE.MeshStandardMaterial({ color: 0xe8d6b0, roughness: 0.4, metalness: 0.25 });
+    mats.voidBody = new THREE.MeshStandardMaterial({ color: 0x7a48c8, roughness: 0.42, metalness: 0.28, emissive: 0x4a00aa, emissiveIntensity: 0.35 });
     mats.voidGlow = new THREE.MeshStandardMaterial({ color: 0xb44aff, emissive: 0x8800ff, emissiveIntensity: 1.5 });
-    mats.stormBody = new THREE.MeshStandardMaterial({ color: 0x101820, roughness: 0.4, metalness: 0.5, emissive: 0x003050, emissiveIntensity: 0.35 });
+    mats.stormBody = new THREE.MeshStandardMaterial({ color: 0x4a7aaa, roughness: 0.4, metalness: 0.35, emissive: 0x1860a0, emissiveIntensity: 0.3 });
     mats.stormGlow = new THREE.MeshStandardMaterial({ color: 0x8ad4ff, emissive: 0x2090ff, emissiveIntensity: 1.5 });
     mats.shadow = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.38, depthWrite: false });
     mats.bullet = new THREE.MeshBasicMaterial({ color: 0x7ae0ff });
@@ -392,10 +396,10 @@
   function buildWorld() {
     const skyTex = mats.sky.map;
     scene.background = skyTex;
-    scene.fog = new THREE.FogExp2(0x1c2230, 0.0075);
-    hemi = new THREE.HemisphereLight(0x9aacC8, 0x3a2a1c, hemiBase);
+    scene.fog = new THREE.FogExp2(0xc5dff0, 0.0032);
+    hemi = new THREE.HemisphereLight(0xc8e6ff, 0xc4a878, hemiBase);
     scene.add(hemi);
-    sunLight = new THREE.DirectionalLight(0xfff0d8, sunBase);
+    sunLight = new THREE.DirectionalLight(0xfff4d2, sunBase);
     sunLight.position.set(-22, 36, 18);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.set(1024, 1024);
@@ -406,11 +410,11 @@
     sc.left = -20; sc.right = 20; sc.top = 20; sc.bottom = -20;
     scene.add(sunLight);
     scene.add(sunLight.target);
-    scene.add(new THREE.AmbientLight(0x4a5568, 0.42));
-    lavaLight = new THREE.PointLight(0xff5510, 2.6, 36, 1.4);
+    scene.add(new THREE.AmbientLight(0xfff6e8, 0.58));
+    lavaLight = new THREE.PointLight(0xff5510, 1.6, 28, 1.4);
     lavaLight.position.set(0, 2.2, -32);
     scene.add(lavaLight);
-    const lava2 = new THREE.PointLight(0xff6a1a, 1.4, 22, 1.6);
+    const lava2 = new THREE.PointLight(0xff6a1a, 0.9, 18, 1.6);
     lava2.position.set(8, 1.6, -28);
     scene.add(lava2);
 
@@ -457,16 +461,13 @@
     pool.position.set(0, 0.045, -32);
     scene.add(pool);
 
-    // glossy puddles in the ruins
-    for (let i = 0; i < 4; i++) {
-      const puddle = noCast(new THREE.Mesh(
-        new THREE.CircleGeometry(rand(1.1, 1.8), 12),
-        new THREE.MeshPhysicalMaterial({ color: 0x6a7a90, roughness: 0.08, metalness: 0.55, envMapIntensity: 1.4, transparent: true, opacity: 0.72 })
-      ));
-      puddle.rotation.x = -Math.PI / 2;
-      puddle.position.set(rand(-10, 10), 0.045, rand(-2, 14));
-      puddle.receiveShadow = true;
-      scene.add(puddle);
+    // sunlit flagstones
+    for (let i = 0; i < 5; i++) {
+      const slab = noCast(mesh(geos.box, mats.stone, rand(1.6, 2.4), 0.08, rand(1.2, 2.0)));
+      slab.position.set(rand(-12, 12), 0.06, rand(-2, 14));
+      slab.rotation.y = rand(0, 0.5);
+      slab.receiveShadow = true;
+      scene.add(slab);
     }
 
     // ruins pillars
@@ -505,6 +506,15 @@
       scene.add(tr);
       pillars.push({ x: x, z: z, r: 0.7, mesh: tr });
       worldProps.push(tr);
+    }
+    for (let i = 0; i < 28; i++) {
+      const a = rand(0, Math.PI * 2);
+      const r = rand(3, 20);
+      const x = 12 + Math.cos(a) * r, z = 36 + Math.sin(a) * r * 0.75;
+      const blade = noCast(mesh(geos.cone, mats.moss, rand(0.12, 0.22), rand(0.25, 0.5), rand(0.12, 0.22)));
+      blade.position.set(x, 0.2, z);
+      blade.rotation.z = rand(-0.2, 0.2);
+      scene.add(blade);
     }
 
     // lair rings
@@ -569,7 +579,7 @@
     }
     mistGeo.setAttribute("position", new THREE.BufferAttribute(mp, 3));
     worldMist = new THREE.Points(mistGeo, new THREE.PointsMaterial({
-      color: 0xb8c4d4, size: 0.55, transparent: true, opacity: 0.28, depthWrite: false, sizeAttenuation: true
+      color: 0xe8f6dc, size: 0.7, transparent: true, opacity: 0.18, depthWrite: false, sizeAttenuation: true
     }));
     scene.add(worldMist);
   }
@@ -630,7 +640,7 @@
       renderer.setPixelRatio(cfg.pr);
       renderer.shadowMap.enabled = cfg.shadows;
       renderer.shadowMap.type = cfg.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
-      renderer.toneMappingExposure = quality === "low" ? 1.22 : 1.38;
+      renderer.toneMappingExposure = quality === "low" ? 1.05 : 1.12;
     }
     if (sunLight) {
       sunLight.castShadow = cfg.shadows;
@@ -697,7 +707,7 @@
   function updateShadowLight() {
     if (!sunLight || !player.group) return;
     const p = player.group.position;
-    sunLight.position.set(p.x - 18, 34, p.z + 14);
+    sunLight.position.set(p.x - 24, 28, p.z + 16);
     sunLight.target.position.set(p.x, 0, p.z);
     sunLight.target.updateMatrixWorld();
     sunLight.shadow.camera.updateProjectionMatrix();
@@ -711,8 +721,8 @@
       const lab = el("minimap-label");
       if (lab) lab.textContent = zn.name;
     }
-    const wantCol = zn.id === "lava" ? 0x2a1c16 : zn.id === "mist" ? 0x1a2430 : 0x1c2230;
-    const wantD = zn.id === "mist" ? 0.011 : zn.id === "lava" ? 0.008 : 0.0065;
+    const wantCol = zn.id === "lava" ? 0xe8d4b8 : zn.id === "mist" ? 0xd8eed0 : 0xc5dff0;
+    const wantD = zn.id === "mist" ? 0.0052 : zn.id === "lava" ? 0.0036 : 0.0030;
     scene.fog.color.lerp(new THREE.Color(wantCol), 0.04);
     scene.fog.density += (wantD - scene.fog.density) * 0.04;
     for (let i = 0; i < worldProps.length; i++) {
@@ -956,202 +966,633 @@
     return g;
   }
 
+  function addEyes(parent, xOff, y, z, s, iris) {
+    for (const sgn of [-1, 1]) {
+      const w = mesh(geos.sphere, mats.eyeWhite, 0.10 * s, 0.11 * s, 0.08 * s);
+      w.position.set(sgn * xOff, y, z);
+      const ir = mesh(geos.sphere, iris || mats.eyeGold, 0.06 * s, 0.06 * s, 0.05 * s);
+      ir.position.set(sgn * xOff, y, z + 0.04 * s);
+      const pu = mesh(geos.sphere, mats.eyeBlack, 0.03 * s);
+      pu.position.set(sgn * xOff, y, z + 0.07 * s);
+      parent.add(w, ir, pu);
+    }
+  }
+  function hitShell(sx, sy, sz) {
+    const m = mesh(geos.sphere, new THREE.MeshBasicMaterial({
+      color: 0xffeedd, transparent: true, opacity: 0, depthWrite: false
+    }), sx, sy, sz);
+    m.castShadow = m.receiveShadow = false;
+    m.userData.hitShell = true;
+    return m;
+  }
+
   function buildImp() {
     const g = new THREE.Group();
-    const body = mesh(geos.sphereLo, mats.imp, 0.38, 0.32, 0.34);
-    body.position.y = 0.9;
-    const head = mesh(geos.sphereLo, mats.imp, 0.26, 0.22, 0.24);
-    head.position.set(0, 1.22, 0.05);
-    const hornL = mesh(geos.cone, mats.impGlow, 0.06, 0.16, 0.06);
-    hornL.position.set(-0.12, 1.4, 0);
-    hornL.rotation.z = 0.4;
-    const hornR = hornL.clone();
-    hornR.position.x = 0.12;
-    hornR.rotation.z = -0.4;
-    const wingL = mesh(new THREE.PlaneGeometry(0.7, 0.45), mats.imp);
-    wingL.position.set(-0.4, 0.95, -0.05);
-    wingL.rotation.y = 0.5;
-    const wingR = wingL.clone();
-    wingR.position.x = 0.4;
-    wingR.rotation.y = -0.5;
-    const glow = mesh(geos.sphereLo, mats.impGlow, 0.12);
-    glow.position.set(0, 0.85, 0.28);
-    g.add(body, head, hornL, hornR, wingL, wingR, glow, blobShadow(0.45));
-    g.userData.wings = [wingL, wingR];
+    const parts = {};
+    const body = new THREE.Group();
+    body.add(mesh(geos.sphere, mats.imp, 0.32, 0.38, 0.28));
+    const belly = mesh(geos.sphere, mats.impGlow, 0.18, 0.2, 0.1);
+    belly.position.set(0, -0.05, 0.22);
+    body.add(belly);
+    body.position.y = 0.95;
+    parts.body = body;
+
+    const head = new THREE.Group();
+    head.add(mesh(geos.sphere, mats.imp, 0.24, 0.22, 0.24));
+    addEyes(head, 0.09, 0.04, 0.16, 0.95, mats.impGlow);
+    const brow = mesh(geos.box, mats.impDark, 0.22, 0.04, 0.06);
+    brow.position.set(0, 0.1, 0.18);
+    head.add(brow);
+    const snout = mesh(geos.sphere, mats.imp, 0.1, 0.08, 0.12);
+    snout.position.set(0, -0.04, 0.22);
+    head.add(snout);
+    for (const s of [-1, 1]) {
+      const fang = mesh(geos.cone, mats.eyeWhite, 0.025, 0.08, 0.025);
+      fang.position.set(s * 0.05, -0.1, 0.26);
+      fang.rotation.x = Math.PI;
+      head.add(fang);
+      const ear = mesh(geos.cone, mats.impDark, 0.07, 0.22, 0.05);
+      ear.position.set(s * 0.16, 0.16, -0.02);
+      ear.rotation.z = s * -0.5;
+      head.add(ear);
+      const horn = mesh(geos.cone, mats.bossHorn, 0.05, 0.28, 0.05);
+      horn.position.set(s * 0.1, 0.28, 0);
+      horn.rotation.z = s * 0.35;
+      head.add(horn);
+    }
+    head.position.set(0, 1.38, 0.06);
+    parts.head = head;
+
+    function arm(side) {
+      const a = new THREE.Group();
+      const up = mesh(geos.cyl, mats.imp, 0.055, 0.28, 0.055);
+      up.position.y = -0.14;
+      const hand = mesh(geos.sphere, mats.impDark, 0.07);
+      hand.position.y = -0.3;
+      const claw = mesh(geos.cone, mats.bossHorn, 0.03, 0.12, 0.03);
+      claw.position.set(0, -0.38, 0.04);
+      a.add(up, hand, claw);
+      a.position.set(side * 0.34, 1.08, 0.04);
+      return a;
+    }
+    parts.armL = arm(-1);
+    parts.armR = arm(1);
+
+    function leg(side) {
+      const a = new THREE.Group();
+      const th = mesh(geos.cyl, mats.impDark, 0.06, 0.28, 0.06);
+      th.position.y = -0.14;
+      const ft = mesh(geos.sphere, mats.impDark, 0.07, 0.05, 0.1);
+      ft.position.set(0, -0.3, 0.04);
+      a.add(th, ft);
+      a.position.set(side * 0.14, 0.62, 0);
+      return a;
+    }
+    parts.legL = leg(-1);
+    parts.legR = leg(1);
+
+    function wing(side) {
+      const w = new THREE.Group();
+      const bone = mesh(geos.cyl, mats.impDark, 0.03, 0.7, 0.03);
+      bone.rotation.z = side * 1.15;
+      bone.position.set(side * 0.28, 0.15, -0.04);
+      const mem = mesh(new THREE.PlaneGeometry(0.7, 0.55), mats.impWing);
+      mem.position.set(side * 0.42, 0.05, -0.05);
+      mem.rotation.y = side * 0.25;
+      const mem2 = mesh(new THREE.PlaneGeometry(0.4, 0.35), mats.impWing);
+      mem2.position.set(side * 0.55, -0.12, -0.02);
+      w.add(bone, mem, mem2);
+      w.position.set(side * 0.12, 1.05, -0.08);
+      return w;
+    }
+    parts.wingL = wing(-1);
+    parts.wingR = wing(1);
+
+    const tail = new THREE.Group();
+    const ts = mesh(geos.cyl, mats.impDark, 0.04, 0.45, 0.03);
+    ts.rotation.x = 0.9;
+    ts.position.set(0, 0, -0.2);
+    const barb = mesh(geos.cone, mats.impGlow, 0.06, 0.14, 0.06);
+    barb.position.set(0, -0.12, -0.4);
+    tail.position.set(0, 0.85, -0.2);
+    tail.add(ts, barb);
+    parts.tail = tail;
+
+    const shell = hitShell(0.55, 0.7, 0.5);
+    shell.position.y = 1.0;
+    g.add(body, head, parts.armL, parts.armR, parts.legL, parts.legR, parts.wingL, parts.wingR, tail, shell, blobShadow(0.5));
+    g.userData.parts = parts;
+    g.userData.wings = [parts.wingL, parts.wingR];
+    g.userData.hitShell = shell;
     return g;
   }
 
   function buildHound() {
     const g = new THREE.Group();
-    const body = mesh(geos.sphereLo, mats.hound, 0.55, 0.32, 0.8);
-    body.position.set(0, 0.55, 0);
-    const head = mesh(geos.sphereLo, mats.hound, 0.28, 0.24, 0.36);
-    head.position.set(0, 0.7, 0.7);
-    const jaw = mesh(geos.box, mats.hound, 0.28, 0.12, 0.3);
-    jaw.position.set(0, 0.5, 0.82);
-    const earL = mesh(geos.cone, mats.hound, 0.08, 0.22, 0.08);
-    earL.position.set(-0.16, 0.92, 0.6);
-    const earR = earL.clone(); earR.position.x = 0.16;
-    const eyeL = mesh(geos.sphereLo, mats.houndEye, 0.06);
-    eyeL.position.set(-0.12, 0.76, 0.95);
-    const eyeR = eyeL.clone(); eyeR.position.x = 0.12;
-    const tail = mesh(geos.cone, mats.hound, 0.1, 0.5, 0.1);
-    tail.position.set(0, 0.6, -0.85);
-    tail.rotation.x = 1.2;
-    g.add(body, head, jaw, earL, earR, eyeL, eyeR, tail, blobShadow(0.7));
-    for (const x of [-0.28, 0.28]) {
-      for (const z of [-0.35, 0.35]) {
-        const lg = mesh(geos.cyl, mats.hound, 0.08, 0.4, 0.08);
-        lg.position.set(x, 0.2, z);
-        g.add(lg);
-      }
+    const parts = {};
+    const body = new THREE.Group();
+    body.add(mesh(geos.sphere, mats.hound, 0.42, 0.32, 0.7));
+    const chest = mesh(geos.sphere, mats.hound, 0.38, 0.32, 0.35);
+    chest.position.set(0, 0.05, 0.4);
+    body.add(chest);
+    for (let i = 0; i < 4; i++) {
+      const sp = mesh(geos.cone, mats.houndDark, 0.08, 0.22, 0.08);
+      sp.position.set(0, 0.28, 0.3 - i * 0.22);
+      sp.rotation.x = -0.5;
+      body.add(sp);
     }
+    body.position.y = 0.72;
+    parts.body = body;
+
+    const head = new THREE.Group();
+    head.add(mesh(geos.sphere, mats.hound, 0.26, 0.22, 0.3));
+    addEyes(head, 0.1, 0.08, 0.18, 1.05, mats.houndEye);
+    const snout = mesh(geos.box, mats.hound, 0.2, 0.12, 0.28);
+    snout.position.set(0, -0.02, 0.28);
+    head.add(snout);
+    const jaw = new THREE.Group();
+    jaw.add(mesh(geos.box, mats.houndDark, 0.18, 0.07, 0.24));
+    jaw.position.set(0, -0.1, 0.22);
+    parts.jaw = jaw;
+    head.add(jaw);
+    for (const s of [-1, 1]) {
+      const horn = mesh(geos.cone, mats.bossHorn, 0.07, 0.42, 0.07);
+      horn.position.set(s * 0.16, 0.28, -0.02);
+      horn.rotation.z = s * 0.35;
+      horn.rotation.x = -0.25;
+      head.add(horn);
+      const tusk = mesh(geos.cone, mats.eyeWhite, 0.03, 0.14, 0.03);
+      tusk.position.set(s * 0.1, -0.06, 0.38);
+      tusk.rotation.x = 1.9;
+      head.add(tusk);
+      const ear = mesh(geos.cone, mats.houndDark, 0.06, 0.18, 0.04);
+      ear.position.set(s * 0.16, 0.2, -0.08);
+      ear.rotation.z = s * -0.3;
+      head.add(ear);
+    }
+    head.position.set(0, 0.95, 0.72);
+    parts.head = head;
+
+    function leg(x, z, name) {
+      const a = new THREE.Group();
+      const up = mesh(geos.cyl, mats.houndDark, 0.08, 0.38, 0.08);
+      up.position.y = -0.16;
+      const paw = mesh(geos.sphere, mats.houndDark, 0.09, 0.06, 0.12);
+      paw.position.set(0, -0.36, 0.04);
+      a.add(up, paw);
+      a.position.set(x, 0.42, z);
+      parts[name] = a;
+      return a;
+    }
+    const tail = new THREE.Group();
+    tail.add(mesh(geos.cone, mats.houndDark, 0.09, 0.6, 0.05));
+    tail.rotation.x = 1.05;
+    tail.position.set(0, 0.75, -0.7);
+    parts.tail = tail;
+
+    const shell = hitShell(0.7, 0.55, 1.0);
+    shell.position.set(0, 0.7, 0.15);
+    g.add(body, head, leg(-0.26, 0.38, "legFL"), leg(0.26, 0.38, "legFR"),
+      leg(-0.26, -0.32, "legBL"), leg(0.26, -0.32, "legBR"), tail, shell, blobShadow(0.75));
+    parts.legL = parts.legFL;
+    parts.legR = parts.legFR;
+    g.userData.parts = parts;
+    g.userData.hitShell = shell;
     return g;
   }
 
   function buildGuard() {
     const g = new THREE.Group();
-    const body = mesh(new THREE.CylinderGeometry(0.55, 0.7, 1.3, 8), mats.guard);
-    body.position.y = 0.9;
-    const head = mesh(geos.box, mats.guard, 0.55, 0.5, 0.5);
-    head.position.y = 1.7;
-    const eye = mesh(geos.box, mats.impGlow, 0.32, 0.08, 0.06);
-    eye.position.set(0, 1.74, 0.26);
-    const armL = mesh(geos.box, mats.guard, 0.22, 0.8, 0.22);
-    armL.position.set(-0.8, 1.0, 0);
-    const armR = armL.clone(); armR.position.x = 0.8;
-    const hammer = mesh(geos.box, mats.stone, 0.5, 0.5, 0.5);
-    hammer.position.set(0.95, 0.55, 0.2);
-    g.add(body, head, eye, armL, armR, hammer, blobShadow(0.9));
+    const parts = {};
+    const body = new THREE.Group();
+    body.add(mesh(geos.sphere, mats.gobSkin, 0.32, 0.36, 0.26));
+    const plate = mesh(geos.box, mats.gobArmor, 0.42, 0.32, 0.18);
+    plate.position.set(0, 0.02, 0.14);
+    body.add(plate);
+    for (const s of [-1, 1]) {
+      const sh = mesh(geos.sphere, mats.gobArmor, 0.14, 0.1, 0.14);
+      sh.position.set(s * 0.28, 0.16, 0);
+      body.add(sh);
+    }
+    body.position.y = 0.95;
+    parts.body = body;
+
+    const head = new THREE.Group();
+    head.add(mesh(geos.sphere, mats.gobSkin, 0.22, 0.2, 0.2));
+    addEyes(head, 0.08, 0.04, 0.14, 0.9, mats.houndEye);
+    const nose = mesh(geos.cone, mats.gobDark, 0.05, 0.12, 0.05);
+    nose.rotation.x = 1.3;
+    nose.position.set(0, -0.02, 0.2);
+    head.add(nose);
+    const helm = mesh(geos.sphere, mats.gobArmor, 0.24, 0.16, 0.22);
+    helm.position.y = 0.1;
+    head.add(helm);
+    for (const s of [-1, 1]) {
+      const ear = mesh(geos.cone, mats.gobSkin, 0.06, 0.2, 0.04);
+      ear.position.set(s * 0.18, 0.1, -0.02);
+      ear.rotation.z = s * -0.7;
+      head.add(ear);
+      const tusk = mesh(geos.cone, mats.eyeWhite, 0.025, 0.1, 0.025);
+      tusk.position.set(s * 0.06, -0.1, 0.16);
+      tusk.rotation.x = 2.2;
+      head.add(tusk);
+    }
+    head.position.set(0, 1.42, 0.04);
+    parts.head = head;
+
+    function arm(side) {
+      const a = new THREE.Group();
+      const up = mesh(geos.cyl, mats.gobSkin, 0.06, 0.32, 0.06);
+      up.position.y = -0.16;
+      const hand = mesh(geos.sphere, mats.gobDark, 0.07);
+      hand.position.y = -0.34;
+      a.add(up, hand);
+      if (side > 0) {
+        const axe = new THREE.Group();
+        const haft = mesh(geos.cyl, mats.gobLeather, 0.03, 0.55, 0.03);
+        const blade = mesh(geos.box, mats.gobArmor, 0.22, 0.16, 0.04);
+        blade.position.set(0.12, 0.22, 0);
+        axe.add(haft, blade);
+        axe.position.set(0.05, -0.35, 0);
+        a.add(axe);
+        parts.weapon = axe;
+      }
+      a.position.set(side * 0.36, 1.12, 0);
+      return a;
+    }
+    parts.armL = arm(-1);
+    parts.armR = arm(1);
+
+    function leg(side) {
+      const a = new THREE.Group();
+      a.add(mesh(geos.cyl, mats.gobLeather, 0.07, 0.34, 0.07));
+      const boot = mesh(geos.box, mats.gobLeather, 0.12, 0.08, 0.18);
+      boot.position.set(0, -0.22, 0.04);
+      a.children[0].position.y = -0.05;
+      a.add(boot);
+      a.position.set(side * 0.12, 0.55, 0);
+      return a;
+    }
+    parts.legL = leg(-1);
+    parts.legR = leg(1);
+    const shell = hitShell(0.5, 0.8, 0.45);
+    shell.position.y = 1.0;
+    g.add(body, head, parts.armL, parts.armR, parts.legL, parts.legR, shell, blobShadow(0.55));
+    g.userData.parts = parts;
+    g.userData.hitShell = shell;
+    return g;
+  }
+
+  function buildGolem() {
+    const g = new THREE.Group();
+    const parts = {};
+    const body = new THREE.Group();
+    body.add(mesh(geos.box, mats.golem, 0.9, 1.1, 0.6));
+    const rune = mesh(geos.box, mats.golemRune, 0.28, 0.36, 0.04);
+    rune.position.set(0, 0.1, 0.32);
+    body.add(rune);
+    const moss = mesh(geos.box, mats.golemMoss, 0.4, 0.18, 0.2);
+    moss.position.set(0.2, 0.4, 0.22);
+    body.add(moss);
+    body.position.y = 1.15;
+    parts.body = body;
+
+    const head = new THREE.Group();
+    head.add(mesh(geos.box, mats.golem, 0.5, 0.42, 0.45));
+    addEyes(head, 0.12, 0.06, 0.22, 1.15, mats.golemRune);
+    const brow = mesh(geos.box, mats.golem, 0.48, 0.08, 0.1);
+    brow.position.set(0, 0.16, 0.2);
+    head.add(brow);
+    const jaw = mesh(geos.box, mats.golem, 0.36, 0.1, 0.2);
+    jaw.position.set(0, -0.2, 0.12);
+    head.add(jaw);
+    parts.jaw = jaw;
+    head.position.set(0, 1.95, 0.05);
+    parts.head = head;
+
+    function arm(side) {
+      const a = new THREE.Group();
+      const up = mesh(geos.box, mats.golem, 0.28, 0.8, 0.28);
+      up.position.y = -0.3;
+      const fist = mesh(geos.box, mats.golem, 0.34, 0.28, 0.34);
+      fist.position.y = -0.75;
+      a.add(up, fist);
+      a.position.set(side * 0.7, 1.45, 0);
+      return a;
+    }
+    parts.armL = arm(-1);
+    parts.armR = arm(1);
+    function leg(side) {
+      const a = new THREE.Group();
+      const th = mesh(geos.box, mats.golem, 0.28, 0.7, 0.28);
+      th.position.y = -0.2;
+      const ft = mesh(geos.box, mats.golem, 0.32, 0.16, 0.4);
+      ft.position.set(0, -0.58, 0.06);
+      a.add(th, ft);
+      a.position.set(side * 0.24, 0.7, 0);
+      return a;
+    }
+    parts.legL = leg(-1);
+    parts.legR = leg(1);
+    const shell = hitShell(0.85, 1.1, 0.7);
+    shell.position.y = 1.2;
+    g.add(body, head, parts.armL, parts.armR, parts.legL, parts.legR, shell, blobShadow(0.95));
+    g.userData.parts = parts;
+    g.userData.hitShell = shell;
     return g;
   }
 
   function buildEmberhorn() {
     const g = new THREE.Group();
-    const body = mesh(new THREE.SphereGeometry(1.8, 12, 10), mats.bossRock);
-    body.scale.set(1, 1.15, 0.85);
-    body.position.y = 2.2;
-    g.add(body);
-    for (let i = 0; i < 8; i++) {
-      const cr = mesh(geos.box, mats.bossLava, 0.08, rand(0.8, 1.8), 0.08);
-      const a = (i / 8) * Math.PI * 2;
-      cr.position.set(Math.cos(a) * 1.55, 2.1 + rand(-0.4, 0.6), Math.sin(a) * 1.2);
-      cr.rotation.z = rand(-0.4, 0.4);
-      g.add(cr);
+    const parts = {};
+
+    function leg(side) {
+      const a = new THREE.Group();
+      const th = mesh(new THREE.CylinderGeometry(0.22, 0.3, 1.05, 6), mats.bossRock);
+      th.position.y = -0.35;
+      const ft = mesh(geos.sphere, mats.bossRock, 0.28, 0.16, 0.38);
+      ft.position.set(0, -0.88, 0.1);
+      const hoof = mesh(geos.box, mats.bossHorn, 0.22, 0.1, 0.3);
+      hoof.position.set(0, -0.98, 0.12);
+      a.add(th, ft, hoof);
+      a.position.set(side * 0.58, 1.05, 0.08);
+      return a;
     }
-    const belly = mesh(geos.sphereLo, mats.bossLava, 0.7);
-    belly.position.set(0, 1.9, 1.3);
-    g.add(belly);
-    const hL = mesh(new THREE.ConeGeometry(0.28, 2.2, 6), mats.bossHorn);
-    hL.position.set(-0.7, 4.3, 0.2);
-    hL.rotation.z = 0.45;
-    hL.rotation.x = -0.3;
-    const hR = hL.clone();
-    hR.position.x = 0.7;
-    hR.rotation.z = -0.45;
-    g.add(hL, hR);
-    const head = mesh(geos.sphereLo, mats.bossRock, 1.05, 0.85, 1.0);
-    head.position.set(0, 3.6, 0.5);
-    g.add(head);
-    const eyeL = mesh(geos.sphereLo, mats.bossLava, 0.16);
-    eyeL.position.set(-0.35, 3.7, 1.3);
-    const eyeR = eyeL.clone(); eyeR.position.x = 0.35;
-    g.add(eyeL, eyeR);
-    const wMat = mats.bossRock.clone();
-    wMat.side = THREE.DoubleSide;
-    const wingL = new THREE.Group();
-    const w1 = mesh(new THREE.PlaneGeometry(3.4, 2.2), wMat);
-    w1.position.set(-2.4, 2.6, -0.2);
-    w1.rotation.y = 0.55;
-    w1.rotation.z = 0.25;
-    const w1b = mesh(new THREE.PlaneGeometry(2.0, 1.3), wMat);
-    w1b.position.set(-3.4, 1.6, -0.1);
-    w1b.rotation.y = 0.7;
-    wingL.add(w1, w1b);
-    const wingR = wingL.clone();
-    wingR.scale.x = -1;
-    g.add(wingL, wingR);
-    g.userData.wings = [wingL, wingR];
-    const armL = mesh(new THREE.CylinderGeometry(0.22, 0.32, 1.8, 6), mats.bossRock);
-    armL.position.set(-1.6, 1.8, 0.4);
-    armL.rotation.z = 0.5;
-    const armR = armL.clone(); armR.position.x = 1.6; armR.rotation.z = -0.5;
-    const clawL = mesh(geos.cone, mats.bossHorn, 0.2, 0.6, 0.2);
-    clawL.position.set(-2.2, 0.9, 0.6);
-    const clawR = clawL.clone(); clawR.position.x = 2.2;
-    g.add(armL, armR, clawL, clawR);
-    const tail = mesh(new THREE.CylinderGeometry(0.08, 0.35, 2.4, 6), mats.bossRock);
-    tail.position.set(0, 1.2, -1.8);
-    tail.rotation.x = 1.1;
-    g.add(tail, blobShadow(2.4));
-    const light = new THREE.PointLight(0xff3a10, 2.6, 16, 1.5);
-    light.position.set(0, 2.4, 1.2);
-    g.add(light);
+    parts.legL = leg(-1);
+    parts.legR = leg(1);
+
+    const body = new THREE.Group();
+    const torso = mesh(new THREE.SphereGeometry(1.15, 12, 10), mats.bossRock);
+    torso.scale.set(1.08, 1.12, 0.85);
+    body.add(torso);
+    const belly = mesh(geos.sphere, mats.bossLava, 0.55, 0.62, 0.3);
+    belly.position.set(0, -0.08, 0.82);
+    body.add(belly);
+    for (let i = 0; i < 3; i++) {
+      const cr = mesh(geos.box, mats.bossLava, 0.07, 0.55, 0.05);
+      cr.position.set((i - 1) * 0.22, 0.12, 0.92);
+      cr.rotation.z = (i - 1) * 0.18;
+      body.add(cr);
+    }
+    body.position.y = 1.9;
+    parts.body = body;
+
+    const head = new THREE.Group();
+    head.add(mesh(geos.sphere, mats.bossRock, 0.72, 0.62, 0.72));
+    addEyes(head, 0.2, 0.12, 0.52, 1.2, mats.bossLava);
+    const brow = mesh(geos.box, mats.bossRock, 0.7, 0.14, 0.18);
+    brow.position.set(0, 0.28, 0.5);
+    head.add(brow);
+    const snout = mesh(geos.box, mats.bossRock, 0.42, 0.22, 0.36);
+    snout.position.set(0, -0.1, 0.62);
+    head.add(snout);
+    const jaw = new THREE.Group();
+    jaw.add(mesh(geos.box, mats.bossHorn, 0.38, 0.12, 0.3));
+    jaw.position.set(0, -0.28, 0.5);
+    parts.jaw = jaw;
+    head.add(jaw);
+    for (const s of [-1, 1]) {
+      const h1 = mesh(new THREE.ConeGeometry(0.18, 1.55, 6), mats.bossHorn);
+      h1.position.set(s * 0.48, 1.0, 0.02);
+      h1.rotation.z = s * 0.42;
+      h1.rotation.x = -0.18;
+      head.add(h1);
+      const h2 = mesh(new THREE.ConeGeometry(0.1, 0.65, 6), mats.bossHorn);
+      h2.position.set(s * 0.62, 0.42, 0.1);
+      h2.rotation.z = s * 0.85;
+      head.add(h2);
+    }
+    head.position.set(0, 3.15, 0.42);
+    parts.head = head;
+
+    function arm(side) {
+      const a = new THREE.Group();
+      const up = mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.15, 6), mats.bossRock);
+      up.position.y = -0.45;
+      const claw = mesh(geos.cone, mats.bossHorn, 0.14, 0.4, 0.14);
+      claw.position.set(0, -1.1, 0.12);
+      claw.rotation.x = 0.4;
+      a.add(up, claw);
+      a.position.set(side * 1.2, 2.2, 0.2);
+      return a;
+    }
+    parts.armL = arm(-1);
+    parts.armR = arm(1);
+
+    function wing(side) {
+      const w = new THREE.Group();
+      const bone = mesh(new THREE.CylinderGeometry(0.07, 0.05, 1.55, 6), mats.bossHorn);
+      bone.rotation.z = side * 1.05;
+      bone.position.set(side * 0.7, 0.35, -0.08);
+      const fin = mesh(geos.box, mats.bossRock, 1.15, 0.1, 0.65);
+      fin.position.set(side * 0.85, 0.12, -0.12);
+      fin.rotation.y = side * 0.3;
+      fin.rotation.z = side * 0.22;
+      const glow = mesh(geos.box, mats.bossLava, 0.85, 0.05, 0.14);
+      glow.position.set(side * 0.85, 0.14, -0.06);
+      glow.rotation.y = side * 0.3;
+      w.add(bone, fin, glow);
+      w.position.set(side * 0.55, 2.25, -0.35);
+      return w;
+    }
+    parts.wingL = wing(-1);
+    parts.wingR = wing(1);
+
+    const tail = mesh(new THREE.CylinderGeometry(0.06, 0.22, 1.8, 6), mats.bossRock);
+    tail.position.set(0, 1.25, -1.15);
+    tail.rotation.x = 1.05;
+    parts.tail = tail;
+    const shell = hitShell(1.55, 2.0, 1.35);
+    shell.position.y = 1.85;
+    const light = new THREE.PointLight(0xff3a10, 1.15, 11, 1.5);
+    light.position.set(0, 2.0, 1.0);
+    g.add(body, head, parts.wingL, parts.wingR, parts.armL, parts.armR, parts.legL, parts.legR, tail, shell, light, blobShadow(2.0));
+    g.userData.parts = parts;
+    g.userData.wings = [parts.wingL, parts.wingR];
+    g.userData.hitShell = shell;
     return g;
   }
 
   function buildVoidmaw() {
     const g = new THREE.Group();
-    const body = mesh(new THREE.OctahedronGeometry(1.8, 1), mats.voidBody);
-    body.position.y = 2.2;
-    body.scale.set(1, 1.3, 1);
-    g.add(body);
-    for (let i = 0; i < 6; i++) {
-      const sp = mesh(geos.cone, mats.voidGlow, 0.2, 1.4, 0.2);
-      const a = (i / 6) * Math.PI * 2;
-      sp.position.set(Math.cos(a) * 1.4, 2.4, Math.sin(a) * 1.4);
+    const parts = {};
+    const body = new THREE.Group();
+    body.add(mesh(new THREE.SphereGeometry(1.5, 12, 10), mats.voidBody));
+    body.position.y = 2.1;
+    for (let i = 0; i < 7; i++) {
+      const sp = mesh(geos.cone, mats.voidGlow, 0.18, 1.1, 0.18);
+      const a = (i / 7) * Math.PI * 2;
+      sp.position.set(Math.cos(a) * 1.2, 0.3, Math.sin(a) * 1.2);
       sp.lookAt(0, 4, 0);
-      g.add(sp);
+      body.add(sp);
     }
-    const core = mesh(geos.sphereLo, mats.voidGlow, 0.7);
-    core.position.y = 2.2;
-    g.add(core);
-    const head = mesh(geos.sphereLo, mats.voidBody, 1.0, 0.7, 1.1);
-    head.position.set(0, 3.5, 0.6);
-    g.add(head);
-    const maw = mesh(geos.cone, mats.voidGlow, 0.5, 0.8, 0.5);
-    maw.rotation.x = Math.PI / 2;
-    maw.position.set(0, 3.2, 1.4);
-    g.add(maw);
-    const wMat = mats.voidBody.clone();
-    wMat.side = THREE.DoubleSide;
-    const wingL = mesh(new THREE.PlaneGeometry(3.2, 1.8), wMat);
-    wingL.position.set(-2.2, 2.8, -0.2);
-    wingL.rotation.y = 0.5;
-    const wingR = wingL.clone(); wingR.position.x = 2.2; wingR.rotation.y = -0.5;
-    g.add(wingL, wingR);
-    g.userData.wings = [wingL, wingR];
-    g.add(blobShadow(2.2));
-    const light = new THREE.PointLight(0xaa44ff, 2.4, 16, 1.5);
+    const core = mesh(geos.sphere, mats.voidGlow, 0.45);
+    core.position.y = 0.1;
+    body.add(core);
+    parts.body = body;
+
+    const head = new THREE.Group();
+    head.add(mesh(geos.sphere, mats.voidBody, 0.95, 0.7, 1.05));
+    addEyes(head, 0.28, 0.15, 0.7, 1.4, mats.voidGlow);
+    const maw = new THREE.Group();
+    const jaw = mesh(geos.cone, mats.voidGlow, 0.4, 0.7, 0.4);
+    jaw.rotation.x = Math.PI / 2;
+    maw.add(jaw);
+    maw.position.set(0, -0.2, 0.85);
+    parts.jaw = maw;
+    head.add(maw);
+    for (const s of [-1, 1]) {
+      const tusk = mesh(geos.cone, mats.eyeWhite, 0.08, 0.4, 0.08);
+      tusk.position.set(s * 0.28, -0.25, 0.7);
+      tusk.rotation.x = 2.2;
+      head.add(tusk);
+    }
+    head.position.set(0, 3.55, 0.7);
+    parts.head = head;
+
+    function wing(side) {
+      const w = new THREE.Group();
+      const bone = mesh(new THREE.CylinderGeometry(0.07, 0.04, 2.8, 6), mats.voidGlow);
+      bone.rotation.z = side * 1.0;
+      bone.position.set(side * 1.3, 0.4, -0.1);
+      const mem = mesh(new THREE.PlaneGeometry(2.4, 1.5), mats.voidBody.clone());
+      mem.material.side = THREE.DoubleSide;
+      mem.position.set(side * 1.7, 0.15, -0.1);
+      mem.rotation.y = side * 0.4;
+      w.add(bone, mem);
+      w.position.set(side * 0.7, 2.5, -0.2);
+      return w;
+    }
+    parts.wingL = wing(-1);
+    parts.wingR = wing(1);
+    function arm(side) {
+      const a = new THREE.Group();
+      a.add(mesh(new THREE.CylinderGeometry(0.14, 0.2, 1.5, 6), mats.voidBody));
+      a.children[0].position.y = -0.5;
+      const claw = mesh(geos.cone, mats.voidGlow, 0.12, 0.4, 0.12);
+      claw.position.y = -1.2;
+      a.add(claw);
+      a.position.set(side * 1.3, 2.2, 0.3);
+      return a;
+    }
+    parts.armL = arm(-1);
+    parts.armR = arm(1);
+    const shell = hitShell(1.8, 2.2, 1.8);
+    shell.position.y = 2.3;
+    const light = new THREE.PointLight(0xaa44ff, 1.6, 14, 1.5);
     light.position.set(0, 2.4, 0);
-    g.add(light);
+    g.add(body, head, parts.wingL, parts.wingR, parts.armL, parts.armR, shell, light, blobShadow(2.2));
+    g.userData.parts = parts;
+    g.userData.wings = [parts.wingL, parts.wingR];
+    g.userData.hitShell = shell;
     return g;
   }
 
   function buildStormrend() {
     const g = new THREE.Group();
-    const body = mesh(new THREE.CylinderGeometry(1.1, 1.5, 3.2, 8), mats.stormBody);
+    const parts = {};
+    const body = new THREE.Group();
+    body.add(mesh(new THREE.CylinderGeometry(1.05, 1.45, 2.8, 8), mats.stormBody));
+    const plate = mesh(geos.box, mats.stormGlow, 0.7, 0.16, 0.12);
+    plate.position.set(0, 0.4, 1.15);
+    body.add(plate);
     body.position.y = 2.1;
-    g.add(body);
-    const head = mesh(geos.sphereLo, mats.stormBody, 0.9);
-    head.position.y = 4.0;
-    g.add(head);
-    const eye = mesh(geos.sphereLo, mats.stormGlow, 0.22);
-    eye.position.set(0, 4.05, 0.8);
-    g.add(eye);
-    for (const x of [-1.6, 1.6]) {
-      const arm = mesh(new THREE.CylinderGeometry(0.2, 0.28, 2.2, 6), mats.stormBody);
-      arm.position.set(x, 2.2, 0.2);
-      arm.rotation.z = x > 0 ? -0.5 : 0.5;
-      g.add(arm);
+    parts.body = body;
+
+    const head = new THREE.Group();
+    head.add(mesh(geos.sphere, mats.stormBody, 0.85, 0.75, 0.9));
+    addEyes(head, 0.22, 0.1, 0.62, 1.35, mats.stormGlow);
+    const jaw = mesh(geos.box, mats.stormBody, 0.55, 0.16, 0.4);
+    jaw.position.set(0, -0.35, 0.4);
+    head.add(jaw);
+    parts.jaw = jaw;
+    const crown = mesh(new THREE.ConeGeometry(0.45, 1.1, 5), mats.stormGlow);
+    crown.position.y = 0.95;
+    head.add(crown);
+    head.position.set(0, 3.85, 0.2);
+    parts.head = head;
+
+    function arm(side) {
+      const a = new THREE.Group();
+      const up = mesh(new THREE.CylinderGeometry(0.18, 0.26, 1.8, 6), mats.stormBody);
+      up.position.y = -0.6;
+      const fist = mesh(geos.sphere, mats.stormGlow, 0.28);
+      fist.position.y = -1.5;
+      a.add(up, fist);
+      a.position.set(side * 1.5, 2.5, 0.15);
+      return a;
     }
-    const crown = mesh(new THREE.ConeGeometry(0.5, 1.3, 5), mats.stormGlow);
-    crown.position.y = 4.9;
-    g.add(crown, blobShadow(2.0));
-    const light = new THREE.PointLight(0x40a0ff, 2.6, 16, 1.5);
+    parts.armL = arm(-1);
+    parts.armR = arm(1);
+    function leg(side) {
+      const a = new THREE.Group();
+      const th = mesh(new THREE.CylinderGeometry(0.22, 0.3, 1.3, 6), mats.stormBody);
+      th.position.y = -0.4;
+      const ft = mesh(geos.box, mats.stormBody, 0.36, 0.18, 0.5);
+      ft.position.set(0, -1.1, 0.08);
+      a.add(th, ft);
+      a.position.set(side * 0.4, 1.15, 0);
+      return a;
+    }
+    parts.legL = leg(-1);
+    parts.legR = leg(1);
+    const shell = hitShell(1.7, 2.4, 1.4);
+    shell.position.y = 2.2;
+    const light = new THREE.PointLight(0x40a0ff, 1.6, 14, 1.5);
     light.position.set(0, 3, 0);
-    g.add(light);
+    g.add(body, head, parts.armL, parts.armR, parts.legL, parts.legR, shell, light, blobShadow(2.0));
+    g.userData.parts = parts;
+    g.userData.hitShell = shell;
     return g;
+  }
+
+  function animateEnemy(e, dt, moving, attacking) {
+    const g = e.mesh;
+    const p = g.userData.parts || {};
+    const shell = g.userData.hitShell;
+    if (shell && shell.material) shell.material.opacity = e.hitT > 0 ? 0.45 : 0;
+
+    if (e.dying) {
+      e.deathT -= dt;
+      const k = Math.max(0, e.deathT / 0.7);
+      g.rotation.x = lerp(g.rotation.x, 1.25, 0.12);
+      g.position.y = Math.max(0, g.position.y - dt * 0.8);
+      g.scale.setScalar(0.55 + 0.45 * k);
+      if (e.deathT <= 0) finishDead(e);
+      return;
+    }
+
+    const bob = moving ? Math.sin(time * 10) * 0.04 : Math.sin(time * 2.5) * 0.02;
+    if (p.body) p.body.position.y += (bob - (p.body.userData._bob || 0));
+    if (p.body) p.body.userData._bob = bob;
+    const swing = moving ? Math.sin(time * 9) * 0.55 : 0;
+    if (p.legL) p.legL.rotation.x = swing;
+    if (p.legR) p.legR.rotation.x = -swing;
+    if (p.legFL) p.legFL.rotation.x = swing;
+    if (p.legFR) p.legFR.rotation.x = -swing;
+    if (p.legBL) p.legBL.rotation.x = -swing;
+    if (p.legBR) p.legBR.rotation.x = swing;
+    if (p.armL) p.armL.rotation.x = attacking ? 0.4 : (moving ? -swing * 0.5 : Math.sin(time * 2) * 0.08);
+    if (p.armR) p.armR.rotation.x = attacking ? -1.15 : (moving ? swing * 0.5 : Math.sin(time * 2 + 1) * 0.08);
+    if (p.head) p.head.rotation.x = attacking ? 0.2 : Math.sin(time * 2.2) * 0.06;
+    if (p.jaw) p.jaw.rotation.x = attacking ? 0.35 : Math.max(0, Math.sin(time * 3) * 0.1);
+    if (p.tail) p.tail.rotation.y = Math.sin(time * 4) * 0.25;
+    if (p.wingL) p.wingL.rotation.z = Math.sin(time * (e.typ === "imp" ? 12 : 2.4)) * (e.typ === "imp" ? 0.45 : 0.18);
+    if (p.wingR) p.wingR.rotation.z = -Math.sin(time * (e.typ === "imp" ? 12 : 2.4)) * (e.typ === "imp" ? 0.45 : 0.18);
+    if (e.hitT > 0) g.scale.setScalar(0.94);
+    else g.scale.setScalar(1);
+  }
+
+  function finishDead(e) {
+    if (e.mesh && e.mesh.parent) e.mesh.parent.remove(e.mesh);
+    const i = enemies.indexOf(e);
+    if (i >= 0) enemies.splice(i, 1);
+  }
+
+  function aliveCount() {
+    let n = 0;
+    for (let i = 0; i < enemies.length; i++) if (!enemies[i].dying) n++;
+    return n;
   }
 
   function buildPickupMesh(type) {
@@ -1230,13 +1671,15 @@
   function spawnEnemy(kind) {
     const pos = edgePos(12);
     let meshG, hp, spd, dmg, radius, scoreV;
-    const typ = kind || (Math.random() < 0.4 ? "imp" : Math.random() < 0.55 ? "hound" : "guard");
+    const typ = kind || (Math.random() < 0.25 ? "imp" : Math.random() < 0.5 ? "hound" : Math.random() < 0.75 ? "guard" : "golem");
     if (typ === "imp") {
-      meshG = buildImp(); hp = 22 + wave * 6; spd = 5.5 + wave * 0.15; dmg = 7; radius = 0.55; scoreV = 100;
+      meshG = buildImp(); hp = 22 + wave * 6; spd = 5.5 + wave * 0.15; dmg = 7; radius = 0.6; scoreV = 100;
     } else if (typ === "hound") {
-      meshG = buildHound(); hp = 34 + wave * 8; spd = 7.2 + wave * 0.2; dmg = 10; radius = 0.7; scoreV = 150;
+      meshG = buildHound(); hp = 34 + wave * 8; spd = 7.2 + wave * 0.2; dmg = 10; radius = 0.85; scoreV = 150;
+    } else if (typ === "golem") {
+      meshG = buildGolem(); hp = 95 + wave * 16; spd = 2.8 + wave * 0.06; dmg = 16; radius = 1.05; scoreV = 300;
     } else {
-      meshG = buildGuard(); hp = 70 + wave * 14; spd = 3.4 + wave * 0.08; dmg = 14; radius = 0.9; scoreV = 250;
+      meshG = buildGuard(); hp = 55 + wave * 12; spd = 4.2 + wave * 0.1; dmg = 12; radius = 0.7; scoreV = 200;
     }
     meshG.position.set(pos.x, 0, pos.z);
     scene.add(meshG);
@@ -1256,18 +1699,24 @@
     const meshG = def.build();
     const px = player.group ? player.group.position.x : 0;
     const pz = player.group ? player.group.position.z : 8;
-    const yaw = player.yaw || 0;
-    let bx = px + Math.sin(yaw) * 11;
-    let bz = pz + Math.cos(yaw) * 11;
-    bx = clamp(bx, WORLD.minX + 6, WORLD.maxX - 6);
-    bz = clamp(bz, WORLD.minZ + 6, WORLD.maxZ - 6);
+    const lair = (idx != null) ? LAIRS.find((L) => L.bossIdx === idx) : null;
+    let bx, bz;
+    if (lair) { bx = lair.x; bz = lair.z; }
+    else {
+      const yaw = player.yaw || 0;
+      bx = clamp(px + Math.sin(yaw) * 12, WORLD.minX + 6, WORLD.maxX - 6);
+      bz = clamp(pz + Math.cos(yaw) * 12, WORLD.minZ + 6, WORLD.maxZ - 6);
+    }
+    const face = Math.atan2(px - bx, pz - bz);
     meshG.position.set(bx, 0, bz);
+    meshG.rotation.y = face;
     scene.add(meshG);
     const hp = def.hp + Math.max(0, wave - 3) * 220;
     const e = {
       mesh: meshG, typ: def.typ, name: def.name, hp, maxHp: hp,
       spd: 3.6, dmg: 18, radius: 2.4, score: 2500, atkCd: 1.6,
-      hitT: 0, yaw: 0, boss: true, phase: 0, addSpawned: false,
+      hitT: 0, yaw: face, boss: true, phase: 0, addSpawned: false,
+      _lair: lair || null,
     };
     enemies.push(e);
     bossRef = e;
@@ -1352,16 +1801,16 @@
   }
 
   function killEnemy(e) {
+    if (e.dying) return;
+    e.dying = true;
+    e.deathT = e.boss ? 0.9 : 0.7;
+    e.hp = 0;
     const p = e.mesh.position;
     addScore((e.score || 100) * wave, p.x, p.y + 1.4, p.z);
     kills++;
-    burst(p.x, p.y + 1, p.z, e.boss ? 0xff5510 : 0xffaa66, e.boss ? 28 : 12, e.boss ? 10 : 6, 0.6);
+    burst(p.x, p.y + 1, p.z, e.boss ? 0xff5510 : 0xffaa66, e.boss ? 22 : 10, e.boss ? 9 : 5, 0.55);
     if (window.AudioFX) e.boss ? AudioFX.explode() : AudioFX.die();
     dropFrom(e);
-    scene.remove(e.mesh);
-    e.hp = 0;
-    const i = enemies.indexOf(e);
-    if (i >= 0) enemies.splice(i, 1);
     if (e.boss) {
       if (e._lair) e._lair.defeated = true;
       bossRef = null;
@@ -1378,6 +1827,7 @@
     let dirx = Math.sin(player.yaw), dirz = Math.cos(player.yaw);
     let best = null, bestDot = 0.55, bestD = 22;
     for (const e of enemies) {
+      if (e.dying) continue;
       const dx = e.mesh.position.x - player.group.position.x;
       const dz = e.mesh.position.z - player.group.position.z;
       const d = len2(dx, dz);
@@ -1416,6 +1866,7 @@
     scene.add(arc);
     particles.push(Object.assign(arc, { userData: { v: new THREE.Vector3(), life: 0.18, max: 0.18, fade: true } }));
     for (const e of enemies.slice()) {
+      if (e.dying) continue;
       const dx = e.mesh.position.x - px, dz = e.mesh.position.z - pz;
       const d = len2(dx, dz);
       const dot = (dx * fx + dz * fz) / (d || 1);
@@ -1440,6 +1891,7 @@
     let dirx = Math.sin(player.yaw), dirz = Math.cos(player.yaw);
     let best = null, bestDot = 0.6, bestD = 16 + c * 28;
     for (const e of enemies) {
+      if (e.dying) continue;
       const dx = e.mesh.position.x - player.group.position.x;
       const dz = e.mesh.position.z - player.group.position.z;
       const d = len2(dx, dz);
@@ -1699,6 +2151,7 @@
     if (mode !== "play" || !player.group) return;
     const px = player.group.position.x, pz = player.group.position.z;
     for (const e of enemies) {
+      if (e.dying || e._held) { animateEnemy(e, dt, false, false); continue; }
       const p = e.mesh.position;
       const dx = px - p.x, dz = pz - p.z;
       const dist = len2(dx, dz) || 1;
@@ -1728,18 +2181,20 @@
           p.x = n.x; p.z = n.z;
         } else if (e.atkCd <= 0) {
           e.atkCd = 1.6;
+          e.attacking = 0.3;
           const b = mesh(geos.sphere, mats.ember, 0.14);
           b.position.set(p.x, 1.2, p.z);
           scene.add(b);
           bullets.push({ mesh: b, vx: (dx / dist) * 14, vy: 0.4, vz: (dz / dist) * 14, life: 2.2, dmg: e.dmg, from: "enemy" });
         }
-      } else if (e.typ === "hound" || e.typ === "guard") {
+      } else if (e.typ === "hound" || e.typ === "guard" || e.typ === "golem") {
         const stop = e.radius + player.radius + 0.15;
         if (!chase || dist > stop) {
           const n = resolveCircle(p.x + (tdx / tdist) * e.spd * (chase ? 1 : 0.55) * dt, p.z + (tdz / tdist) * e.spd * (chase ? 1 : 0.55) * dt, e.radius);
           p.x = n.x; p.z = n.z;
         } else if (e.atkCd <= 0) {
-          e.atkCd = e.typ === "guard" ? 1.4 : 0.9;
+          e.atkCd = e.typ === "golem" ? 1.6 : e.typ === "guard" ? 1.2 : 0.9;
+          e.attacking = 0.35;
           hurtPlayer(e.dmg);
         }
       } else if (e.boss) {
@@ -1755,6 +2210,7 @@
         if (e.atkCd <= 0) {
           e.phase = (e.phase + 1) % 3;
           e.atkCd = 2.1;
+          e.attacking = 0.45;
           if (e.phase === 0) {
             for (let i = -2; i <= 2; i++) {
               const ang = want + i * 0.22;
@@ -1777,6 +2233,9 @@
           }
         }
       }
+      if (e.attacking > 0) e.attacking -= dt;
+      const moving = tdist > 0.15;
+      animateEnemy(e, dt, moving, e.attacking > 0);
     }
   }
 
@@ -1794,7 +2253,8 @@
       }
       if (!dead && b.from === "player") {
         for (const e of enemies.slice()) {
-          const ey = e.boss ? 2.0 : (e.typ === "imp" ? 1.0 : 0.7);
+          if (e.dying) continue;
+          const ey = e.boss ? 2.0 : (e.typ === "imp" ? 1.1 : 0.8);
           if (len2(bx - e.mesh.position.x, bz - e.mesh.position.z) < e.radius + 0.2 && Math.abs(by - ey) < 1.6 + (e.boss ? 2 : 0)) {
             hurtEnemy(e, b.dmg, e.mesh.position.x, ey + 0.6, e.mesh.position.z);
             dead = true;
@@ -1858,7 +2318,8 @@
         }
       }
       for (const e of enemies.slice()) {
-        const ey = e.boss ? 2.2 : 0.8;
+        if (e.dying) continue;
+        const ey = e.boss ? 2.2 : 0.9;
         if (len2(a.mesh.position.x - e.mesh.position.x, a.mesh.position.z - e.mesh.position.z) < e.radius + 0.15 &&
             Math.abs(a.mesh.position.y - ey) < 1.8 + (e.boss ? 2.2 : 0)) {
           hitE = e;
@@ -1952,6 +2413,17 @@
     }
   }
 
+  function snapPlayerCam() {
+    if (!player.group) return;
+    const p = player.group.position;
+    const back = 8.2, height = 3.9, look = 1.2;
+    const tx = p.x - Math.sin(player.yaw) * back;
+    const tz = p.z - Math.cos(player.yaw) * back;
+    camera.position.set(tx, p.y + height, tz);
+    _look.set(p.x + Math.sin(player.yaw) * 2.2, p.y + look, p.z + Math.cos(player.yaw) * 2.2);
+    camera.lookAt(_look);
+  }
+
   function updateCamera(dt) {
     if (!player.group) return;
     const p = player.group.position;
@@ -1972,18 +2444,18 @@
 
   function maybeLightning(dt) {
     flashT = Math.max(0, flashT - dt);
-    if (Math.random() < dt * 0.08) flashT = 0.12;
-    if (hemi) hemi.intensity = hemiBase + (flashT > 0 ? 1.2 : 0);
-    if (sunLight) sunLight.intensity = sunBase + (flashT > 0 ? 0.7 : 0);
+    if (Math.random() < dt * 0.015) flashT = 0.06;
+    if (hemi) hemi.intensity = hemiBase + (flashT > 0 ? 0.12 : 0);
+    if (sunLight) sunLight.intensity = sunBase + (flashT > 0 ? 0.15 : 0);
   }
 
   function updateHomeCam(dt) {
     time += dt;
-    const ha = time * 0.18;
-    camera.position.set(Math.sin(ha) * 3.4 + 0.4, 2.55, 7.4 + Math.cos(ha) * 1.2);
-    camera.lookAt(0, 1.15, 4);
+    const ha = time * 0.16;
+    camera.position.set(Math.sin(ha) * 2.6, 2.45, 3.0 + Math.cos(ha) * 0.8);
+    camera.lookAt(0, 1.15, 7.0);
     if (player.group) {
-      player.group.position.set(0, 0, 4);
+      player.group.position.set(0, 0, 6);
       player.group.rotation.y = time * 0.25;
       player.group.visible = true;
       if (player.parts.body) player.parts.body.position.y = 0.72 + Math.sin(time * 2) * 0.03;
@@ -2038,7 +2510,7 @@
     ctx.clearRect(0, 0, W, W);
     ctx.save();
     ctx.beginPath(); ctx.arc(R, R, R, 0, Math.PI * 2); ctx.clip();
-    ctx.fillStyle = "#12151c";
+    ctx.fillStyle = "#d5e4f2";
     ctx.fillRect(0, 0, W, W);
     const scale = (R - 8) / 48;
     const px = player.group.position.x, pz = player.group.position.z;
@@ -2049,7 +2521,7 @@
       return [x, y, false];
     }
     // zones
-    const zcols = { ruins: "rgba(90,100,120,0.35)", lava: "rgba(180,70,30,0.35)", mist: "rgba(70,110,90,0.35)" };
+    const zcols = { ruins: "rgba(210,180,110,0.55)", lava: "rgba(210,90,40,0.45)", mist: "rgba(90,170,70,0.45)" };
     for (let i = 0; i < ZONES.length; i++) {
       const zn = ZONES[i];
       const c0 = map(zn.x, zn.z);
@@ -2059,11 +2531,11 @@
       ctx.fill();
     }
     // world bounds
-    ctx.strokeStyle = "rgba(212,184,106,0.4)";
+    ctx.strokeStyle = "rgba(140,110,50,0.65)";
     ctx.lineWidth = 2;
     const b1 = map(WORLD.minX, WORLD.minZ), b2 = map(WORLD.maxX, WORLD.maxZ);
     ctx.strokeRect(b1[0], b1[1], b2[0] - b1[0], b2[1] - b1[1]);
-    ctx.fillStyle = "rgba(160,160,170,0.55)";
+    ctx.fillStyle = "rgba(120,110,90,0.7)";
     for (const p of pillars) {
       const m = map(p.x, p.z);
       ctx.beginPath(); ctx.arc(m[0], m[1], 3, 0, Math.PI * 2); ctx.fill();
@@ -2439,7 +2911,7 @@
     renderer.setSize(window.innerWidth, window.innerHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.38;
+    renderer.toneMappingExposure = 1.12;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     camera = new THREE.PerspectiveCamera(55, window.innerWidth / Math.max(1, window.innerHeight), 0.1, 240);
@@ -2478,7 +2950,25 @@
       home: quitToHome,
       openSettings: openSettings,
       spawnBoss: function (i) { if (mode !== "play") startGame(); spawnBoss(i || 0); },
+      clearMobs: function () {
+        enemies.slice().forEach((e) => { if (e.mesh && e.mesh.parent) e.mesh.parent.remove(e.mesh); });
+        enemies.length = 0;
+        bossRef = null;
+        toSpawn = 0;
+        el("boss-wrap").classList.remove("show");
+      },
       spawnEnemy: function (typ) { return spawnEnemy(typ); },
+      spawnAt: function (typ, x, z) {
+        const e = spawnEnemy(typ);
+        e.mesh.position.set(x, typ === "imp" ? 0.2 : 0, z);
+        e.homeX = x; e.homeZ = z;
+        if (player.group) {
+          e.yaw = Math.atan2(player.group.position.x - x, player.group.position.z - z);
+          e.mesh.rotation.y = e.yaw;
+        }
+        e._held = true;
+        return e;
+      },
       spawnPickup: function (typ, x, z) { spawnPickup(typ, x == null ? 1 : x, z == null ? 6 : z); },
       killPlayer: function () { player.hp = 0; updateHP(); gameOver(); },
       giveAll: function () {
@@ -2492,16 +2982,20 @@
       setQuality: function (q) { applyQuality(q); },
       setShowFps: function (v) { showFps = !!v; el("fps-meter").classList.toggle("show", showFps); saveSettings(); },
       setAutoQuality: function (v) { autoQuality = !!v; saveSettings(); },
-      teleport: function (x, z) {
+      teleport: function (x, z, yaw) {
         if (!player.group) return;
         const r = resolveCircle(x, z, player.radius);
         player.group.position.set(r.x, 0, r.z);
+        if (yaw != null) player.yaw = yaw;
+        snapPlayerCam();
       },
       gotoLair: function (i) {
         const L = LAIRS[i || 0];
         if (!L || !player.group) return;
-        player.group.position.set(L.x, 0, L.z + 6);
-        player.yaw = 0;
+        const z = L.z + 12;
+        player.group.position.set(L.x, 0, z);
+        player.yaw = Math.atan2(L.x - L.x, L.z - z);
+        snapPlayerCam();
       },
       getState: function () {
         return {
