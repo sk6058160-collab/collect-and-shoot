@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Collect & Shoot">
+  <meta name="theme-color" content="#0b0e16">
+  <meta name="format-detection" content="telephone=no">
+  <title>Collect and Shoot</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="hud" class="hidden">
+    <div id="minimap-wrap"><canvas id="minimap" width="216" height="216"></canvas></div>
+    <div id="minimap-label">Arena</div>
+
+    <div id="top-center">
+      <div id="boss-wrap">
+        <div id="boss-name">EMBERHORN</div>
+        <div class="bar-frame" id="boss-bar"><div id="boss-fill"></div></div>
+      </div>
+      <div id="score-row">
+        <div><span class="k">Score</span> <span class="v" id="score-v">0</span></div>
+        <div><span class="k">Wave</span> <span class="v" id="wave-v">1</span></div>
+      </div>
+      <div id="combo">COMBO x2</div>
+    </div>
+
+    <div id="menu-icons">
+      <button class="icon-btn" id="btn-mute" aria-label="Mute">♪</button>
+      <button class="icon-btn" id="btn-pause" aria-label="Pause">❚❚</button>
+    </div>
+
+    <div id="toast"></div>
+    <div id="power-tag"></div>
+
+    <div id="hp-wrap">
+      <div id="hp-label">Vitality</div>
+      <div class="bar-frame" id="hp-bar">
+        <div id="hp-fill"></div>
+        <div id="hp-text">100 / 100</div>
+      </div>
+    </div>
+
+    <div id="joy-base"><div id="joy-knob"></div></div>
+
+    <div id="skills">
+      <button class="skill locked" id="btn-power" type="button">
+        <span class="ic">✶</span><span class="lab">POWER</span>
+      </button>
+      <button class="skill locked" id="btn-bow" type="button">
+        <svg class="charge-ring" viewBox="0 0 72 72" aria-hidden="true">
+          <circle cx="36" cy="36" r="33" fill="none" stroke="rgba(212,184,106,0.25)" stroke-width="3"/>
+          <circle id="bow-ring" cx="36" cy="36" r="33" fill="none" stroke="#ffd36a" stroke-width="3.5"
+            stroke-linecap="round" stroke-dasharray="207.3" stroke-dashoffset="207.3"
+            transform="rotate(-90 36 36)"/>
+        </svg>
+        <span class="ic">🏹</span><span class="lab">BOW</span>
+        <span class="lvl" id="bow-lvl">1</span>
+      </button>
+      <button class="skill locked" id="btn-slash" type="button">
+        <span class="ic">⚔</span><span class="lab">SLASH</span>
+        <span class="lvl" id="sword-lvl">1</span>
+      </button>
+      <button class="skill" id="btn-fire" type="button">
+        <span class="ic">✦</span><span class="lab">FIRE</span>
+        <span class="lvl show" id="gun-lvl">1</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="screens">
+    <div class="screen show" id="home">
+      <div class="panel">
+        <div id="title-game">COLLECT &amp; SHOOT</div>
+        <div id="title-sub">Storm Arena</div>
+        <div id="home-hs">High Score &nbsp;<span id="hs-home">0</span></div>
+        <div class="btn-row">
+          <button class="btn primary" id="btn-play">Play</button>
+          <button class="btn" id="btn-howto">How to Play</button>
+        </div>
+        <div id="install-hint"></div>
+      </div>
+    </div>
+
+    <div class="screen" id="howto">
+      <div id="howto-box">
+        <h2>How to Play</h2>
+        <ul>
+          <li>Hold your phone in <b>landscape</b>. Left stick moves your hero.</li>
+          <li><b>FIRE</b> shoots your gun. Collect guns to make it stronger.</li>
+          <li><b>SLASH</b> swings a sword up close. Collect swords to unlock and upgrade it.</li>
+          <li><b>BOW</b> (teer kaman): hold to draw, release to fire. A longer draw deals more damage and flies farther. Arrows arc through the air and stick where they land.</li>
+          <li>Pick up <b>powers</b> for heal, shield, overdrive, or a nova blast — then tap POWER.</li>
+          <li>There are no coins or gems. Score only comes from defeating enemies and bosses.</li>
+          <li>Waves get harder. Every few waves, a giant boss enters the arena.</li>
+        </ul>
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn primary" id="btn-howto-ok">Got it</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen" id="pause">
+      <div id="pause-box">
+        <h2>Paused</h2>
+        <p style="text-align:center;margin-bottom:16px;color:#c8b894">The storm waits.</p>
+        <div class="btn-row">
+          <button class="btn primary" id="btn-resume">Resume</button>
+          <button class="btn" id="btn-quit">Quit to Home</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen" id="gameover">
+      <div id="over-box">
+        <div class="big">FELLED</div>
+        <div id="over-stats">
+          Score <b id="over-score">0</b><br>
+          Wave <b id="over-wave">1</b><br>
+          Best <b id="over-best">0</b>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" id="btn-again">Fight Again</button>
+          <button class="btn" id="btn-over-home">Home</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="rotate">
+    <div class="phone"></div>
+    <p>Rotate your phone</p>
+    <span>Collect and Shoot is built for landscape. Turn your phone sideways to play.</span>
+  </div>
+
+  <script src="js/three.min.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
